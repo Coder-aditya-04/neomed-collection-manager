@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Neomed Collection Manager — Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ink: #0F1F2E; --mute: #5C6B78; --faint: #8A98A4;
+    --hair: #DCE4EA; --rule: #EFF2F5; --canvas: #EDF1F4;
+    --teal: #00857A; --teal-deep: #00655D;
+    --a0: #14958A; --a1: #D8A21A; --a2: #E0742B; --a3: #C4373C; --violet: #6D5BB8;
+    --ui: "Archivo", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  @page { size: A4; margin: 16mm 15mm 18mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: var(--ui); color: var(--ink);
+    font-size: 10.5pt; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { line-height: 1.15; letter-spacing: -0.015em; margin: 0; }
+  h1 { font-size: 26pt; font-weight: 700; }
+  h2 { font-size: 15pt; font-weight: 600; margin-top: 26px; padding-bottom: 5px; border-bottom: 2px solid var(--ink); }
+  h3 { font-size: 11.5pt; font-weight: 600; margin-top: 18px; }
+  p { margin: 7px 0; text-wrap: pretty; }
+  ul, ol { margin: 7px 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+  strong { font-weight: 600; }
+  code { font-family: var(--mono); font-size: 9pt; background: var(--rule); padding: 1px 4px; border-radius: 2px; }
+  .tnum { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* page control */
+  section { break-inside: auto; }
+  h2 { break-after: avoid; break-inside: avoid; }
+  h3 { break-after: avoid; }
+  .keep { break-inside: avoid; }
+  .page-break { break-before: page; }
+
+  /* cover */
+  .cover { min-height: 232mm; display: flex; flex-direction: column; justify-content: space-between; }
+  .mark { width: 26px; height: 26px; border: 2.5px solid var(--ink); position: relative; }
+  .mark::after { content: ""; position: absolute; inset: 6px 3px; border-left: 2.5px solid var(--ink); border-right: 2.5px solid var(--ink); }
+  .kicker { font-size: 8.5pt; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
+  .lede { font-size: 12.5pt; color: var(--mute); max-width: 60ch; margin-top: 14px; }
+
+  /* blocks */
+  .panel { border: 1px solid var(--hair); background: #fff; padding: 12px 14px; margin: 12px 0; }
+  .rule-box { border-left: 3px solid var(--teal); background: #F7FAFB; padding: 10px 14px; margin: 12px 0; }
+  .warn-box { border-left: 3px solid var(--a1); background: #FFFDF5; padding: 10px 14px; margin: 12px 0; }
+  .figures { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--hair); border: 1px solid var(--hair); margin: 14px 0; }
+  .figures > div { background: #fff; padding: 9px 11px; }
+  .figures .v { font-family: var(--mono); font-size: 15pt; font-weight: 500; letter-spacing: -.02em; margin-top: 2px; }
+  .figures .n { font-size: 8pt; color: var(--mute); margin-top: 2px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9.5pt; }
+  th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); border-bottom: 1px solid var(--ink); padding: 5px 7px; font-weight: 600; }
+  td { border-bottom: 1px solid var(--rule); padding: 5px 7px; vertical-align: top; }
+  td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .strip { display: flex; gap: 2px; height: 12px; margin: 6px 0; }
+  .strip i { display: block; border-radius: 1.5px; }
+  .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+  .steps { counter-reset: s; list-style: none; padding: 0; }
+  .steps > li { counter-increment: s; position: relative; padding-left: 30px; margin: 12px 0; }
+  .steps > li::before {
+    content: counter(s); position: absolute; left: 0; top: 1px;
+    width: 20px; height: 20px; border: 1px solid var(--ink); border-radius: 50%;
+    display: grid; place-items: center; font-family: var(--mono); font-size: 8.5pt; font-weight: 500;
+  }
+  .qa { margin: 9px 0; }
+  .qa .q { font-weight: 600; }
+  .qa .a { color: var(--mute); margin-top: 2px; }
+  footer { margin-top: 34px; padding-top: 10px; border-top: 1px solid var(--hair); font-size: 8.5pt; color: var(--faint); }
+</style>
+</head>
+<body>
+
+<!-- ============================ COVER ============================ -->
+<div class="cover">
+  <div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="mark"></div>
+      <div>
+        <div style="font-size:13pt;font-weight:600;line-height:1;">Neomed Pharma Agencies</div>
+        <div class="kicker" style="margin-top:4px;">Nashik</div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="kicker">User guide and handover</div>
+    <h1 style="margin-top:10px;">Collection<br>Manager</h1>
+    <p class="lede">
+      A receivables system built on the daily outstanding export from Marg ERP.
+      It records the credit terms Marg cannot hold, measures every bill against
+      the term that actually applies to that party, and refuses to call anything
+      overdue until someone has told it what the term is.
+    </p>
+
+    <div class="figures" style="margin-top:26px;">
+      <div><div class="kicker">Parties</div><div class="v">819</div><div class="n">709 owing · 97 in credit</div></div>
+      <div><div class="kicker">Open bills</div><div class="v">8,197</div><div class="n">back to Mar 2020</div></div>
+      <div><div class="kicker">Net outstanding</div><div class="v">₹7.93 Cr</div><div class="n">matches Marg exactly</div></div>
+      <div><div class="kicker">Running cost</div><div class="v">₹0</div><div class="n">per month</div></div>
+    </div>
+  </div>
+
+  <div style="font-size:9pt;color:var(--mute);">
+    Snapshot of 9 September 2026 · prepared 16 September 2026
+  </div>
+</div>
+
+<!-- ============================ WHY ============================ -->
+<section class="page-break">
+<h2>Why this exists</h2>
+
+<p>
+  Marg tells you what is owed. It cannot tell you what is <strong>late</strong>,
+  because it holds no credit terms — its Due Date column simply repeats the Bill
+  Date on almost every row. So the only thing the export can honestly say is how
+  <em>old</em> a bill is.
+</p>
+
+<div class="rule-box">
+  <p style="margin:0;"><strong>Old and late are not the same thing.</strong> A hospital that
+  submits bills by the 5th and is paid on the 25th of the following month will
+  routinely carry a 78-day-old bill that is perfectly on time. Chasing them for
+  it wastes the call and damages the relationship.</p>
+</div>
+
+<p>
+  This system keeps the two ideas apart. Everything follows from that one
+  distinction, including the places where it refuses to answer.
+</p>
+
+<h3>What the file itself revealed</h3>
+<p>
+  Two things in the real export are worth knowing, because both would quietly
+  produce wrong figures if handled carelessly.
+</p>
+
+<p>
+  <strong>The party totals and the bill rows disagree.</strong> For 46 parties,
+  Marg's own header total does not match the sum of the bills beneath it — by
+  about ₹1 crore in aggregate. Adding up bill rows gives ₹8.93 Cr where Marg
+  shows ₹7.93 Cr. This system takes the header figure, as Marg does, and lists
+  every disagreement so nothing is hidden.
+</p>
+
+<p>
+  <strong>Marg already holds a due date for 19 parties</strong>, implying credit
+  periods of 60 or 30 days. Those are shown for review but deliberately not
+  applied — a term becomes real only when a person approves it.
+</p>
+</section>
+
+<!-- ============================ GETTING STARTED ============================ -->
+<section>
+<h2>Getting started</h2>
+
+<ol class="steps">
+  <li>
+    <strong>Open the site and sign in.</strong>
+    Each person gets their own login. What they can change depends on their role.
+  </li>
+  <li>
+    <strong>Fill in credit terms.</strong> This is the one thing only Neomed can
+    supply, and until it is done the system can show balances but not lateness.
+    Go to <strong>Credit master</strong> — parties are listed largest first, so
+    the work is finite: the top hundred rows cover most of the money.
+  </li>
+  <li>
+    <strong>Import the file each morning.</strong> Export the outstanding
+    bill-wise report from Marg, drop it into <strong>Import</strong>, read the
+    preview, confirm. About a minute.
+  </li>
+  <li>
+    <strong>Work the call list.</strong> <strong>Today</strong> shows who to
+    call and why. Log what happened as you go.
+  </li>
+</ol>
+
+<div class="warn-box">
+  <p style="margin:0;">
+    <strong>The system gets better every day you use it.</strong> Marg exports no
+    receipts, so payment history is worked out by comparing today's file against
+    yesterday's — a balance that fell is money that arrived. One file tells it
+    nothing about behaviour. A month of files tells it a great deal.
+  </p>
+</div>
+</section>
+
+<!-- ============================ SCREENS ============================ -->
+<section class="page-break">
+<h2>The screens</h2>
+
+<h3>Today</h3>
+<p>
+  The current position, and what to do about it. Four headline figures, the
+  portfolio ageing strip, the priority call list with a written reason for each
+  party, and where the money is concentrated.
+</p>
+<p>
+  The <strong>Work this first</strong> list is ranked by money at risk — the
+  amount, weighted by how far past term it is, weighted again by how that party
+  usually behaves. Each row explains itself in a sentence built from that
+  party's own figures.
+</p>
+
+<div class="panel keep">
+  <div class="kicker">Deliberately left off the call list</div>
+  <ul style="margin-bottom:0;">
+    <li><strong>Held by an open claim.</strong> The next action is ours, not theirs. They are not defaulters.</li>
+    <li><strong>In dispute, legal, or written off.</strong> Handled elsewhere.</li>
+    <li><strong>No credit term recorded.</strong> Nothing can be called late without one.</li>
+    <li><strong>Below the small-balance threshold.</strong> Chasing costs more than the money.</li>
+    <li><strong>In credit or at zero.</strong> They owe nothing.</li>
+  </ul>
+</div>
+
+<h3>Parties</h3>
+<p>
+  All 819, searchable and sortable on any column. Filters for the slices you
+  actually want: critical, above ₹5 L, term not set, credit balance. Clicking a
+  row opens a drawer over the list rather than navigating away, so you keep your
+  place, your filter and your scroll position.
+</p>
+<p>
+  The drawer shows the ageing split, every open bill, and — where the header and
+  bill rows disagree — both figures side by side with a note saying which one is
+  being used.
+</p>
+
+<h3>Credit master</h3>
+<p>The data-entry screen, built for speed. Two models, because retailers and hospitals are paid differently:</p>
+<table class="keep">
+  <thead><tr><th style="width:22%">Model</th><th>How it works</th><th style="width:30%">Who uses it</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Days</strong></td><td>So many days from the bill date. 30, 45, 60, 90.</td><td>Retailers, chemists</td></tr>
+    <tr><td><strong>Monthly cycle</strong></td><td>Bills must reach them by a set day to make that month's run; payment is released on a set day, that month or the next.</td><td>Hospitals, institutions</td></tr>
+    <tr><td><strong>Not set</strong></td><td>No term recorded. The party cannot be judged.</td><td>The starting state</td></tr>
+  </tbody>
+</table>
+<p>
+  Select several rows and apply one term to all of them — most hospitals share a
+  cycle. The progress header shows how much of the book becomes judgeable as you
+  work, so the effort has a visible end.
+</p>
+
+<h3>Import</h3>
+<p>
+  Drag the file in. It is read in your browser and you see exactly what it
+  contains before anything is saved: the totals, what changed since the previous
+  file, and every discrepancy found. <strong>Nothing is written until you press
+  confirm</strong>, so a bad export can be discarded without leaving a trace.
+</p>
+
+<h3>Follow-ups, Promises, Claims</h3>
+<p>
+  <strong>Follow-ups</strong> lists what was missed first, then what is planned,
+  then what the team has been doing. <strong>Claims</strong> groups by who owes
+  the internal action, because that is what unblocks the money.
+</p>
+<p>
+  <strong>Promises</strong> is the one worth explaining. A promise closes only
+  when a payment supports it. Nobody can mark one kept by hand — press
+  <em>Check against payments</em> and the system matches each promise against
+  money that actually arrived, and records which payments justify the result.
+</p>
+
+<h3>Settings</h3>
+<p>
+  Team and roles, the small-balance threshold, the category defaults, and the
+  full import history with the warnings each file raised.
+</p>
+</section>
+
+<!-- ============================ ASSISTANT ============================ -->
+<section class="page-break">
+<h2>The assistant</h2>
+
+<p>
+  Ask in plain English. Answers come back as figures, ageing strips and ranked
+  lists — not paragraphs.
+</p>
+
+<div class="panel keep">
+  <div class="kicker" style="margin-bottom:6px;">Things it answers</div>
+  <div class="qa"><div class="q">Give me today's calls on priority</div><div class="a">The ranked call list, with a reason for each party.</div></div>
+  <div class="qa"><div class="q">Who has payment pending?</div><div class="a">The same ranking, phrased the other way round.</div></div>
+  <div class="qa"><div class="q">Who did not keep their promise?</div><div class="a">Broken and partly-kept promises, with what was actually received.</div></div>
+  <div class="qa"><div class="q">What is the payment history of Godavari?</div><div class="a">How that party has paid over time: money received, bills cleared, median days to pay, and a rating.</div></div>
+  <div class="qa"><div class="q">How much does Godavari owe?</div><div class="a">Today's balance and ageing — a different question from the one above, and answered differently.</div></div>
+  <div class="qa"><div class="q">Parties above 5 lakh</div><div class="a">Understands "5 lakh", "₹5L", "50 lakh", "1 crore".</div></div>
+  <div class="qa"><div class="q">Parties with a bill older than 90 days</div><div class="a">Bill age, clearly labelled as age rather than lateness.</div></div>
+  <div class="qa"><div class="q">Which parties cannot I judge?</div><div class="a">Everything blocked for want of a credit term, largest first.</div></div>
+  <div class="qa"><div class="q">Who is blocked by a claim?</div><div class="a">Money held by our own pending action.</div></div>
+  <div class="qa"><div class="q">What changed since the last import?</div><div class="a">Money in, new billing, and the net movement.</div></div>
+</div>
+
+<h3>What it will not do</h3>
+<p>
+  There is no language model behind this. Questions are matched against a fixed
+  set of patterns and every figure is computed by the database. Three
+  consequences, all deliberate:
+</p>
+<ul>
+  <li><strong>The same question always gives the same answer.</strong></li>
+  <li><strong>It cannot invent a number.</strong> Every figure is read, never generated.</li>
+  <li><strong>It says when it does not understand</strong> rather than guessing. A confident answer to a question nobody asked is worse than admitting the miss.</li>
+</ul>
+
+<div class="warn-box keep">
+  <p style="margin:0 0 6px;"><strong>Asked something it cannot honestly answer, it stops and says so.</strong></p>
+  <p style="margin:0;font-size:9.5pt;">
+    Ask how overdue a party is when no term is recorded and it will tell you it
+    cannot answer that, explain that bill age is not lateness, give you the figures
+    it does have, and ask for the term. It will never fill the gap with an estimate.
+    This is the single most important behaviour in the product.
+  </p>
+</div>
+</section>
+
+<!-- ============================ READING ============================ -->
+<section>
+<h2>Reading the ageing strip</h2>
+
+<div class="strip keep" style="height:16px;">
+  <i style="background:var(--a0);flex:3"></i>
+  <i style="background:var(--a1);flex:2"></i>
+  <i style="background:var(--a2);flex:1.4"></i>
+  <i style="background:var(--a3);flex:2.6"></i>
+</div>
+<p style="font-size:9.5pt;color:var(--mute);margin-top:4px;">
+  <span class="swatch" style="background:var(--a0)"></span>Within terms
+  <span class="swatch" style="background:var(--a1);margin-left:14px;"></span>1–30 days over
+  <span class="swatch" style="background:var(--a2);margin-left:14px;"></span>31–60 over
+  <span class="swatch" style="background:var(--a3);margin-left:14px;"></span>60+ over
+</p>
+
+<p>
+  Every bucket is measured against that party's <strong>own expected due
+  date</strong>, never against raw bill age. The four segments always add up to
+  the figure Marg shows, even where the bill rows disagree with the header.
+</p>
+
+<p>
+  A <strong>hatched grey strip</strong> means no credit term is recorded. It is
+  not an empty strip and it is not zero — it means the question cannot be
+  answered yet. Money in credit is marked in violet; it is an advance, not a debt.
+</p>
+</section>
+
+<!-- ============================ RULES ============================ -->
+<section>
+<h2>The rules it will not break</h2>
+
+<p>
+  These are enforced by the database, not by the interface. They hold even if
+  someone works around the screens.
+</p>
+
+<table class="keep">
+  <thead><tr><th style="width:4%"></th><th>Rule</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td><strong>A credit term is never guessed.</strong> Not from bill dates, not from due dates, not from past behaviour. If it is not recorded, the system says so and asks.</td></tr>
+    <tr><td class="num">2</td><td><strong>A category default is not an approved term.</strong> Where one is used it is labelled an assumption everywhere it appears.</td></tr>
+    <tr><td class="num">3</td><td><strong>A party's total comes from Marg's own header figure</strong>, never from adding up bill rows.</td></tr>
+    <tr><td class="num">4</td><td><strong>Imported rows are never edited.</strong> Correcting a figure means importing a new file. Marg stays the financial truth.</td></tr>
+    <tr><td class="num">5</td><td><strong>A promise closes only when a payment supports it.</strong> Nobody can mark one kept by hand.</td></tr>
+    <tr><td class="num">6</td><td><strong>A credit balance is never counted as debt.</strong> 97 parties are in credit by ₹12.61 L between them.</td></tr>
+    <tr><td class="num">7</td><td><strong>Money reads the Indian way</strong> — ₹89.72 L, ₹7.93 Cr — and figures line up in columns.</td></tr>
+    <tr><td class="num">8</td><td><strong>Every figure traces to a snapshot and a rule.</strong> No estimates, and no rounding that hides a discrepancy.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ============================ ROLES ============================ -->
+<section class="page-break">
+<h2>Who can do what</h2>
+
+<table class="keep">
+  <thead><tr><th style="width:18%">Role</th><th>Can change</th><th style="width:34%">Typically</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Owner</strong></td><td>Everything, including thresholds and who is on the team</td><td>The proprietor</td></tr>
+    <tr><td><strong>Accounts</strong></td><td>Credit terms, claims, follow-ups, promises, and imports</td><td>The accounts desk</td></tr>
+    <tr><td><strong>Sales</strong></td><td>Follow-ups and promises only</td><td>Field staff</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Everyone sees the whole book. The limits are on <em>changing</em> things, and
+  they are enforced in the database — a salesperson cannot set a credit term
+  even if they reach the system directly. That is deliberate: the credit term is
+  the one number the entire product depends on.
+</p>
+
+<h3>Adding someone</h3>
+<p>
+  Create the user in Supabase under Authentication, then give them a role. A
+  person with a login but no role can sign in and will see nothing — that is the
+  security working, not a fault.
+</p>
+</section>
+
+<!-- ============================ WHERE IT STANDS ============================ -->
+<section>
+<h2>Where it stands today</h2>
+
+<table class="keep">
+  <thead><tr><th style="width:26%">Phase</th><th style="width:16%">State</th><th>What it covers</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Phase 1</strong></td><td style="color:var(--teal-deep);font-weight:600;">Complete</td><td>Parser, import, database, ageing engine, parties list, party detail, credit master, dashboard</td></tr>
+    <tr><td><strong>Phase 2</strong></td><td style="color:var(--teal-deep);font-weight:600;">Complete</td><td>Claims, follow-ups, promises, roles and permissions</td></tr>
+    <tr><td><strong>Phase 3</strong></td><td style="color:var(--a2);font-weight:600;">Built, waiting on data</td><td>Snapshot comparison, derived payment history, behaviour profiles, assistant</td></tr>
+  </tbody>
+</table>
+
+<div class="warn-box keep">
+  <p style="margin:0 0 6px;"><strong>Two things are true on day one, and both are expected.</strong></p>
+  <p style="margin:0 0 6px;font-size:9.5pt;">
+    <strong>The book cannot be aged yet.</strong> No credit term has been recorded, so
+    all ₹8.06 Cr sits under "cannot be judged". Typing in the terms for the
+    largest parties is what turns this from a list of balances into a collection
+    system.
+  </p>
+  <p style="margin:0;font-size:9.5pt;">
+    <strong>Payment history is empty.</strong> It is derived by comparing consecutive
+    exports, and only one file has been imported. Import tomorrow's and it begins;
+    expect a few weeks before behaviour ratings mean much.
+  </p>
+</div>
+</section>
+
+<!-- ============================ COST + LIMITS ============================ -->
+<section>
+<h2>What it costs to run</h2>
+
+<table class="keep">
+  <thead><tr><th>Item</th><th class="num" style="width:22%">Cost</th></tr></thead>
+  <tbody>
+    <tr><td>Database, authentication, file storage</td><td class="num">₹0</td></tr>
+    <tr><td>Hosting</td><td class="num">₹0</td></tr>
+    <tr><td>Assistant — no language model, so nothing to meter</td><td class="num">₹0</td></tr>
+    <tr><td>Domain, if wanted</td><td class="num">~₹900/yr</td></tr>
+  </tbody>
+</table>
+<p style="font-size:9.5pt;color:var(--mute);">
+  Nothing bills per use. This dataset is about 25 MB a year against a 500 MB free
+  allowance. The only reasons to ever pay would be outgrowing that, which takes
+  years, or wanting daily backups.
+</p>
+
+<h2>Honest limitations</h2>
+<ul>
+  <li><strong>The export is manual.</strong> If nobody exports the file, the book goes stale. Every screen shows the age of the snapshot it is reading for exactly that reason.</li>
+  <li><strong>Payment history is inferred, not read.</strong> Marg exports no receipts, so payments are derived from balances falling between two files. Reliable, but money paid and re-billed the same day is invisible.</li>
+  <li><strong>Behaviour ratings need history.</strong> A party stays unrated until three of its bills have been settled and observed.</li>
+  <li><strong>Some bill series are unclassified.</strong> 1,634 rows use voucher prefixes (CRA, CRB, CRC, CRD) that were not in the original specification. They are imported and counted correctly, but grouped as "other" until someone at Neomed says what those series mean.</li>
+</ul>
+
+<footer>
+  Neomed Collection Manager · user guide and handover · 16 September 2026<br>
+  Built against the outstanding export of 9 September 2026 — 819 parties, 8,197 bills, ₹7.93 Cr net.
+</footer>
+</section>
+
+</body>
+</html>
