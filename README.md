@@ -92,7 +92,7 @@ it, but **its database is still empty** — none of the tables exist yet.
 ## Tests
 
 ```bash
-npm test                    # 104 JavaScript tests — parser, formatting, intent routing
+npm test                    # 108 JavaScript tests — parser, formatting, intent routing
 ./supabase/tests/run.sh     # 102 SQL tests — ageing, priority, diffing, profiles, RLS
 ```
 

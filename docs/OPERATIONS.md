@@ -69,7 +69,7 @@ Run this against any new export that looks suspicious.
 ## Tests
 
 ```bash
-npm test                    # 104 JavaScript — parser, formatting, intent routing
+npm test                    # 108 JavaScript — parser, formatting, intent routing
 ./supabase/tests/run.sh     # 102 SQL — ageing, priority, diffing, profiles, RLS
 ```
 
