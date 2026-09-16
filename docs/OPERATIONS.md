@@ -112,6 +112,27 @@ chat message.
 
 ---
 
+## Commit authorship
+
+Vercel refuses to build a commit whose author email it cannot map to a Git
+account with access to the project. On a Hobby plan an unrecognised author
+reads as an outside collaborator, and the build is blocked with *"Hobby teams
+do not support collaboration"* — which sounds like a billing problem but is
+really an identity one. Repository visibility makes no difference.
+
+This repository is pinned to the GitHub noreply address, which always resolves
+to the account:
+
+```bash
+git config user.name  "Coder-aditya-04"
+git config user.email "144666060+Coder-aditya-04@users.noreply.github.com"
+```
+
+If a build is ever blocked this way again, check `git log --format='%ae'`
+against the emails on the GitHub account connected to Vercel.
+
+---
+
 ## Database changes
 
 Migrations are numbered and idempotent. Add a new numbered file, then
