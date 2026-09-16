@@ -7,6 +7,7 @@ import NotBuiltYet from './features/shell/NotBuiltYet.jsx';
 import ImportScreen from './features/import/ImportScreen.jsx';
 import DashboardScreen from './features/dashboard/DashboardScreen.jsx';
 import PartiesScreen from './features/parties/PartiesScreen.jsx';
+import CreditMasterScreen from './features/credit/CreditMasterScreen.jsx';
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = still checking
@@ -29,16 +30,7 @@ export default function App() {
         <Route index element={<DashboardScreen />} />
         <Route path="import" element={<ImportScreen />} />
         <Route path="parties" element={<PartiesScreen />} />
-        <Route
-          path="credit-master"
-          element={
-            <NotBuiltYet
-              title="Credit master"
-              step={5}
-              what="The bulk term editor: days or monthly cycle per row, multi-row apply, keyboard-only entry, autosave, and progress against the top 100."
-            />
-          }
-        />
+        <Route path="credit-master" element={<CreditMasterScreen />} />
         <Route
           path="followups"
           element={<NotBuiltYet title="Follow-ups" step={7} what="Missed first, then planned, then team activity." />}

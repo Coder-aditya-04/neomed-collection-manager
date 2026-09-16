@@ -12,7 +12,7 @@ import { formatDate } from '../../lib/format.js';
 const NAV = [
   { to: '/', label: 'Today', step: null },
   { to: '/parties', label: 'Parties', step: null },
-  { to: '/credit-master', label: 'Credit master', step: 5 },
+  { to: '/credit-master', label: 'Credit master', step: null },
   { to: '/followups', label: 'Follow-ups', step: 7 },
   { to: '/promises', label: 'Promises', step: 7 },
   { to: '/claims', label: 'Claims', step: 7 },
