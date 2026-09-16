@@ -208,7 +208,12 @@ const INTENTS = [
   },
   {
     intent: 'who_to_call',
-    patterns: [/WHO (SHOULD|DO) I CALL/, /WHO TO CALL/, /WORK FIRST/, /PRIORITY/, /CHASE/, /WHO FIRST/],
+    patterns: [
+      /WHO (SHOULD|DO) I CALL/, /WHO TO CALL/, /WORK FIRST/, /PRIORITY/, /CHASE/, /WHO FIRST/,
+      /TODAY.{0,10}CALL/, /CALL.{0,10}(LIST|TODAY)/, /CALL ON PRIORITY/,
+      /PAYMENT.{0,10}PENDING/, /PENDING.{0,10}PAYMENT/, /WHO.{0,15}(PENDING|NOT PAID|HASN T PAID|HAS NOT PAID)/,
+      /\bDEFAULTER/, /WHO OWES/,
+    ],
   },
   {
     intent: 'ageing_breakdown',
@@ -262,6 +267,18 @@ export function matchIntent(question, parties = []) {
   const aboutEverything = /\b(ALL|EVERY|TOTAL|BOOK|PORTFOLIO|OVERALL|SUMMARY)\b/.test(s);
 
   if (named && !aboutEverything) {
+    // "How has X paid over the last month" is a question about behaviour, not
+    // about today's balance.
+    if (/\b(HISTORY|BEHAVIOU?R|PATTERN|TRACK RECORD|RECORD|TREND|HOW (HAS|HAVE|DO|DOES|DID)|OVER THE LAST|PAST \d+|LAST \d+|USUALLY|TYPICALLY|RELIABLE|PAYS)\b/.test(s)) {
+      return {
+        intent: 'party_history',
+        params: {
+          partyId: named.party.party_id,
+          partyName: named.party.display_name,
+          days: parseDays(raw) ?? 90,
+        },
+      };
+    }
     return {
       intent: 'party_lookup',
       params: {
@@ -304,18 +321,19 @@ function paramsFor(intent, raw) {
 /** What the assistant will answer, for the help card and the chips. */
 export const CAPABILITIES = [
   { intent: 'summary', example: 'What is the overall position?' },
-  { intent: 'party_lookup', example: 'How much does Impulse owe?' },
+  { intent: 'party_lookup', example: 'How much does Godavari owe?' },
+  { intent: 'party_history', example: 'What is the payment history of Godavari?' },
   { intent: 'top_parties', example: 'Top 10 by outstanding' },
   { intent: 'above_amount', example: 'Parties above 5 lakh' },
   { intent: 'older_than', example: 'Parties with a bill older than 90 days' },
   { intent: 'ageing_breakdown', example: 'Show the ageing breakdown' },
-  { intent: 'who_to_call', example: 'Who should I call today?' },
+  { intent: 'who_to_call', example: 'Give me today\'s calls on priority' },
   { intent: 'needs_credit_term', example: 'Which parties cannot I judge?' },
   { intent: 'credit_balance_parties', example: 'Who is in credit?' },
   { intent: 'claim_blocked', example: 'Who is blocked by a claim?' },
   { intent: 'small_accounts', example: 'Which accounts are too small to chase?' },
   { intent: 'what_changed', example: 'What changed since the last import?' },
-  { intent: 'broken_promises', example: 'Who broke a promise?' },
+  { intent: 'broken_promises', example: 'Who did not keep their promise?' },
   { intent: 'missed_followups', example: 'Which follow-ups were missed?' },
   { intent: 'party_count', example: 'How many parties are there?' },
 ];

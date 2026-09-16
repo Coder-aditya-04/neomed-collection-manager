@@ -147,6 +147,39 @@ describe('intent routing', () => {
     expect(matchIntent('bills older than 6 months', PARTIES).params.days).toBe(180);
   });
 
+  it('routes the ways a call list actually gets asked for', () => {
+    for (const q of [
+      "give me today's call on priority",
+      'who has payment pending',
+      'todays call list',
+      'who should I call today',
+      'show me the defaulters',
+    ]) {
+      expect(matchIntent(q, PARTIES).intent, q).toBe('who_to_call');
+    }
+  });
+
+  it('separates a history question from a balance question', () => {
+    const balance = matchIntent('how much does kims owe', PARTIES);
+    const history = matchIntent('what is the payment history of kims', PARTIES);
+    expect(balance.intent).toBe('party_lookup');
+    expect(history.intent).toBe('party_history');
+    expect(history.params.partyId).toBe('2');
+  });
+
+  it('reads the window out of a history question', () => {
+    expect(matchIntent('how has kims paid over the last 1 month', PARTIES).params.days).toBe(30);
+    expect(matchIntent('kims track record over 6 months', PARTIES).params.days).toBe(180);
+    // No window given falls back to a quarter.
+    expect(matchIntent('what is the history of kims', PARTIES).params.days).toBe(90);
+  });
+
+  it('routes a broken promise question however it is phrased', () => {
+    for (const q of ['who broke a promise', 'who did not keep their promise', 'broken promises']) {
+      expect(matchIntent(q, PARTIES).intent, q).toBe('broken_promises');
+    }
+  });
+
   it('says a question is unmatched rather than guessing', () => {
     // Guessing an intent produces a confident answer to a question nobody
     // asked, which is worse than admitting the miss.

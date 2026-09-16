@@ -126,6 +126,86 @@ const HANDLERS = {
     };
   },
 
+  /**
+   * How a party has actually behaved, derived from comparing snapshots.
+   *
+   * Marg exports no receipts, so this history exists only because the system
+   * has been watching balances fall between one day's file and the next. With
+   * a single snapshot there is nothing to compare, and the honest answer is
+   * to say so rather than present today's balance as a history.
+   */
+  async party_history({ partyId, partyName, days }) {
+    const [{ data: party }, { data: profile }, { data: events }] = await Promise.all([
+      supabase.from('v_party_ageing').select('*').eq('party_id', partyId).maybeSingle(),
+      supabase.from('party_profiles').select('*').eq('party_id', partyId).maybeSingle(),
+      supabase
+        .from('bill_changes')
+        .select('*')
+        .eq('party_id', partyId)
+        .in('change_type', ['payment', 'settled'])
+        .order('detected_to', { ascending: false })
+        .limit(60),
+    ]);
+
+    if (!party) return { kind: 'text', text: `I could not find ${partyName}.` };
+
+    if (!events?.length) {
+      const { count } = await supabase
+        .from('snapshots')
+        .select('id', { count: 'exact', head: true });
+      return blocked(
+        `I have no payment history for ${party.display_name} yet.`,
+        count && count > 1
+          ? 'Two snapshots have been compared but no payment against this party was seen in them. ' +
+            'Either nothing arrived, or the money moved and was re-billed within a single day.'
+          : `Payment history is derived by comparing one day's export with the next, and only ${count ?? 1} ` +
+            'snapshot has been imported. Import tomorrow\'s file and this question starts to have an answer — ' +
+            'each further day adds to it.',
+        null,
+        [
+          { k: 'Outstanding', v: formatInr(party.current_outstanding) },
+          { k: 'Oldest bill', v: formatAge(party.oldest_bill_age_days) },
+          { k: 'Open bills', v: formatCount(party.bill_count) },
+        ]
+      );
+    }
+
+    const cutoff = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+    const inWindow = events.filter((e) => e.detected_to >= cutoff);
+    const received = inWindow.reduce((a, e) => a + num(e.delta), 0);
+    const settledCount = inWindow.filter((e) => e.change_type === 'settled').length;
+
+    const rated = profile && profile.settled_bill_count >= 3;
+    const behaviour = rated
+      ? `Across ${formatCount(profile.settled_bill_count)} settled bills they take a median of ` +
+        `${formatCount(profile.actual_payment_days)} days to clear one, and their rating is ${profile.reliability}.` +
+        (num(profile.partial_payment_rate) > 0
+          ? ` ${formatPct(num(profile.partial_payment_rate), 1)} of those bills were paid in more than one instalment.`
+          : ' They clear a bill in one payment.')
+      : `Only ${formatCount(profile?.settled_bill_count ?? 0)} of their bills have been settled and observed so far, ` +
+        'so I will not put a rating on them yet — three is the minimum before a pattern means anything.';
+
+    return {
+      kind: 'answer',
+      text:
+        `Over the last ${formatCount(days)} days ${party.display_name} paid ${formatInr(received)} across ` +
+        `${formatCount(inWindow.length)} movements, clearing ${formatCount(settledCount)} bills outright. ${behaviour}`,
+      kv: [
+        { k: 'Received', v: formatInr(received) },
+        { k: 'Bills cleared', v: formatCount(settledCount) },
+        { k: 'Median days to pay', v: rated ? `${formatCount(profile.actual_payment_days)}d` : 'not yet known' },
+        { k: 'Rating', v: profile?.reliability ?? 'unknown' },
+      ],
+      list: inWindow.slice(0, 12).map((e) => ({
+        name: e.bill_no,
+        amount: formatInr(e.delta),
+        meta: `${e.change_type === 'settled' ? 'cleared' : 'part payment'} · seen ${formatDate(e.detected_to)}` +
+          (e.bill_date ? ` · billed ${formatDate(e.bill_date)}` : ''),
+      })),
+      source: `Derived from snapshot comparison · ${formatCount(events.length)} events on record`,
+    };
+  },
+
   async top_parties({ limit }) {
     const rows = await parties({ order: 'current_outstanding.desc', limit, gt: 0 });
     const all = await parties({ order: 'current_outstanding.desc', limit: 1000, gt: 0 });

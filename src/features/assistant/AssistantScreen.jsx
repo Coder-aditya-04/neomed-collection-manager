@@ -7,10 +7,11 @@ import { executeIntent } from './execute.js';
 import AgeingStrip from '../../components/AgeingStrip.jsx';
 
 const CHIPS = [
+  "Give me today's calls on priority",
+  'Who has payment pending?',
+  'Who did not keep their promise?',
   'What is the overall position?',
-  'Who should I call today?',
   'Which parties cannot I judge?',
-  'Top 10 by outstanding',
   'What changed since the last import?',
 ];
 
