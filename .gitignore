@@ -1,0 +1,15 @@
+node_modules
+dist
+.env
+.env.local
+.DS_Store
+*.log
+
+# Client data — NEVER commit. The Marg export carries real party names and
+# the full receivables book. This repository is public.
+*.xls
+*.xlsx
+outstanding*
+
+# Design source export — kept local, carries prototype party data
+Neomed dashboard UI specifications/

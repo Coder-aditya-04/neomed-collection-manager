@@ -1,0 +1,167 @@
+@import "tailwindcss";
+
+/*
+ * Tokens lifted from the approved prototype
+ * (Neomed dashboard UI specifications/Neomed Collection Manager.dc.html).
+ * The _ds "Industry" kit in that folder is a different, unused direction.
+ */
+@theme {
+  --color-ink: #0f1f2e;
+  --color-canvas: #edf1f4;
+  --color-hair: #dce4ea;
+  --color-teal: #00857a;
+  --color-teal-deep: #00655d;
+  --color-mute: #5c6b78;
+  --color-faint: #8a98a4;
+  --color-rule: #eff2f5;
+
+  /* The ageing ramp: within terms -> 1-30 -> 31-60 -> 60+ */
+  --color-age-0: #14958a;
+  --color-age-1: #d8a21a;
+  --color-age-2: #e0742b;
+  --color-age-3: #c4373c;
+  /* Claims are their own colour: held by us, not owed late by them. */
+  --color-claim: #6d5bb8;
+
+  --font-ui: "Archivo", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --ease-dc: cubic-bezier(0.22, 0.75, 0.3, 1);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    /* The drawing-board grid the prototype sits on. */
+    background:
+      repeating-linear-gradient(to right, rgba(15, 31, 46, 0.045) 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(to bottom, rgba(15, 31, 46, 0.045) 0 1px, transparent 1px 34px),
+      var(--color-canvas);
+    background-attachment: fixed;
+  }
+
+  /* Rule 7: figures line up in columns, always. */
+  .tnum {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--color-teal);
+    outline-offset: 1px;
+  }
+
+  ::selection {
+    background: rgba(0, 133, 122, 0.18);
+  }
+
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #c4d0d9;
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 9px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #a8b7c2;
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Frosted panels — the prototype's one piece of depth. */
+  .panel {
+    background: rgba(255, 255, 255, 0.74);
+    backdrop-filter: blur(12px) saturate(1.3);
+    -webkit-backdrop-filter: blur(12px) saturate(1.3);
+    border: 1px solid var(--color-hair);
+  }
+
+  .kicker {
+    font-size: 10px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+
+  .btn {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 160ms ease-out, border-color 160ms ease-out;
+  }
+  .btn-primary {
+    border: 1px solid var(--color-teal);
+    background: var(--color-teal);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-teal-deep);
+  }
+  .btn-secondary {
+    border: 1px solid var(--color-hair);
+    background: #fff;
+    color: var(--color-ink);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: #f2f6f8;
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+@keyframes screenIn {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-screen-in {
+  animation: screenIn 280ms var(--ease-dc) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
