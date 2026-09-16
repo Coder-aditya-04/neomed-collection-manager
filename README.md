@@ -3,12 +3,15 @@
 Receivables management for a pharmaceutical distributor in Nashik. The only
 data source is a bill-wise outstanding `.xls` exported by hand from Marg ERP.
 
-**Status: Phase 1 complete (build order steps 1–6), live and running on real
-data.** The 9 Sep export is imported: 819 parties, 8,197 bills, ₹7.93 Cr net,
-matching Marg exactly.
+**Status: all three phases built. Live on real data.**
 
 - **Live:** https://coder-aditya-04.github.io/neomed-collection-manager/
-- **Supabase:** project `goncujtgaxoegtozpnbc`, schema applied, snapshot loaded
+- **Supabase:** project `goncujtgaxoegtozpnbc`
+- **Docs:** [Handover](docs/HANDOVER.md) (for the client) · [Operations](docs/OPERATIONS.md) (for whoever maintains this)
+- **Tests:** 206 — 104 JavaScript, 102 SQL
+
+The 9 Sep export is imported: 819 parties, 8,197 bills, ₹7.93 Cr net, matching
+Marg exactly.
 
 ```
 ACCEPTANCE                 ACTUAL           EXPECTED         MATCH
@@ -30,19 +33,19 @@ Re-run it any time with `node scripts/acceptance.mjs`.
 
 | Step | What | State |
 |---|---|---|
-| 1 | Supabase project, schema, RLS policies | Done, applied to the live project |
+| 1 | Schema, RLS policies | Done, applied to the live project |
 | 2 | Parser + import screen | Done, verified against the real 9 Sep export |
-| 3 | `v_party_ageing`, `fn_priority_list`, SQL tests | Done, 71 SQL tests passing |
+| 3 | `v_party_ageing`, `fn_priority_list` | Done |
 | 4 | Parties list, virtualised, with detail drawer | Done |
 | 5 | Credit master bulk editor | Done |
 | 6 | Dashboard | Done |
-| **—** | **Phase 1 ends here** | **Complete** |
-| 7 | Follow-ups, promises, claims | Not started (Phase 2) |
-| 8 | Snapshot diffing, behaviour profiles | Not started (Phase 3) |
-| 9 | Assistant intent router | Not started (Phase 3) |
+| 7 | Follow-ups, promises, claims, settings | Done |
+| 8 | `fn_diff_snapshots`, `fn_compute_profiles`, `fn_settle_promises` | Done — **needs migration 0006 applied to Supabase** |
+| 9 | Assistant intent router | Done |
 
-Steps 7–9 show a placeholder naming the step they arrive in, so the state of
-the build is legible from inside the app.
+Steps 8 and 9 cannot show anything until a **second** day's export is
+imported: payment history is derived by comparing consecutive snapshots, and
+there is only one so far.
 
 ---
 
@@ -89,8 +92,8 @@ it, but **its database is still empty** — none of the tables exist yet.
 ## Tests
 
 ```bash
-npm test                    # 67 JavaScript tests — parser and formatting
-./supabase/tests/run.sh     # 71 SQL tests — ageing, priority, RLS
+npm test                    # 104 JavaScript tests — parser, formatting, intent routing
+./supabase/tests/run.sh     # 102 SQL tests — ageing, priority, diffing, profiles, RLS
 ```
 
 `run.sh` needs a local Postgres 15+ listening on `PGPORT` (default 5433). To
