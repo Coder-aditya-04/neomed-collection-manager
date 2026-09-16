@@ -3,9 +3,12 @@
 Receivables management for a pharmaceutical distributor in Nashik. The only
 data source is a bill-wise outstanding `.xls` exported by hand from Marg ERP.
 
-**Status: build order steps 1–3 complete, acceptance passed.** The real
-export parses to every figure the spec asks for. Step 4 is unblocked once the
-schema is applied to Supabase.
+**Status: Phase 1 complete (build order steps 1–6), live and running on real
+data.** The 9 Sep export is imported: 819 parties, 8,197 bills, ₹7.93 Cr net,
+matching Marg exactly.
+
+- **Live:** https://coder-aditya-04.github.io/neomed-collection-manager/
+- **Supabase:** project `goncujtgaxoegtozpnbc`, schema applied, snapshot loaded
 
 ```
 ACCEPTANCE                 ACTUAL           EXPECTED         MATCH
@@ -27,10 +30,19 @@ Re-run it any time with `node scripts/acceptance.mjs`.
 
 | Step | What | State |
 |---|---|---|
-| 1 | Supabase project, schema, RLS policies | Written and tested; **not yet applied to the Supabase project** — see below |
+| 1 | Supabase project, schema, RLS policies | Done, applied to the live project |
 | 2 | Parser + import screen | Done, verified against the real 9 Sep export |
 | 3 | `v_party_ageing`, `fn_priority_list`, SQL tests | Done, 71 SQL tests passing |
-| 4–9 | Parties list, credit master, dashboard, follow-ups, diffing, assistant | Not started; each route shows which step it arrives in |
+| 4 | Parties list, virtualised, with detail drawer | Done |
+| 5 | Credit master bulk editor | Done |
+| 6 | Dashboard | Done |
+| **—** | **Phase 1 ends here** | **Complete** |
+| 7 | Follow-ups, promises, claims | Not started (Phase 2) |
+| 8 | Snapshot diffing, behaviour profiles | Not started (Phase 3) |
+| 9 | Assistant intent router | Not started (Phase 3) |
+
+Steps 7–9 show a placeholder naming the step they arrive in, so the state of
+the build is legible from inside the app.
 
 ---
 
