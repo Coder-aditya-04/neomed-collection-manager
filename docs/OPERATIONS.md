@@ -88,18 +88,27 @@ idempotent), then runs all three suites.
 
 ## Deploying
 
-Pushing to `main` builds and publishes to GitHub Pages. The workflow runs the
-test suite first and will not deploy a failing build.
+Vercel builds and publishes on every push to `main`. GitHub Actions runs the
+test suite in parallel; it no longer deploys, because GitHub Pages cannot serve
+a private repository on a free plan.
 
-Two repository secrets supply the client configuration:
+Two environment variables supply the client configuration, both set in Vercel
+under **Settings → Environment Variables**:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
-The anon key is a public client credential by design. What protects the data
-is row level security, not the secrecy of that key. **The service role key is
-different** — it bypasses RLS entirely and must never appear in the front end,
-a repository, or a chat message.
+Set both as **Config**, not **Secret**. Vite inlines anything prefixed `VITE_`
+into the JavaScript bundle at build time, so the value reaches every visitor's
+browser no matter how it is stored — marking it Secret hides it from your team
+in the Vercel dashboard while still shipping it to the public. Vercel warns
+about exactly this.
+
+That is fine for these two. The anon key is a public client credential by
+design; what protects the data is row level security, not the secrecy of the
+key. **The service role key is different** — it bypasses RLS entirely and must
+never appear in the front end, in a repository, in a `VITE_` variable, or in a
+chat message.
 
 ---
 
