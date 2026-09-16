@@ -1,7 +1,8 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
-import { formatDate } from '../../lib/format.js';
+import { partiesAgeingQuery, priorityListQuery } from '../../lib/queries.js';
+import { formatCount, formatDate } from '../../lib/format.js';
 
 /** Every route in the spec. All of them are built. */
 const NAV = [
@@ -46,6 +47,15 @@ export default function AppShell({ session }) {
     },
   });
 
+  const { data: parties } = useQuery(partiesAgeingQuery());
+  const { data: priority } = useQuery(priorityListQuery(50));
+
+  const counts = {
+    '/': priority?.length,
+    '/parties': parties?.length,
+    '/credit-master': parties?.filter((p) => p.needs_credit_term && Number(p.current_outstanding) > 0).length,
+  };
+
   const { data: profile } = useQuery({
     queryKey: ['me', session?.user?.id],
     enabled: Boolean(session?.user?.id),
@@ -87,9 +97,9 @@ export default function AppShell({ session }) {
               }
             >
               <span className="truncate">{item.label}</span>
-              {item.step ? (
-                <span className="flex-none font-mono text-[9px] text-faint" title={`Arrives in build step ${item.step}`}>
-                  {item.step}
+              {counts[item.to] !== undefined && counts[item.to] !== null ? (
+                <span className="flex-none font-mono text-[9.5px] text-faint">
+                  {formatCount(counts[item.to])}
                 </span>
               ) : null}
             </NavLink>
@@ -108,8 +118,11 @@ export default function AppShell({ session }) {
         <header className="sticky top-0 z-30 flex flex-wrap items-center gap-[14px] border-b border-hair bg-white/[0.72] px-[18px] py-[9px] backdrop-blur-lg">
           <div className="text-[17px] font-semibold leading-[1.1] tracking-[-0.015em]">{title}</div>
           <div className="max-w-[46ch] text-[11.5px] text-mute text-pretty">{subtitle}</div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-[10px]">
             <SnapshotBadge snapshot={snapshot} />
+            <Link to="/import" className="btn btn-primary whitespace-nowrap px-3 py-[5px] text-[12px] no-underline">
+              Import
+            </Link>
           </div>
         </header>
 

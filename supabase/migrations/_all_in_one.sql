@@ -3,8 +3,6 @@
 -- numbered migrations. Paste into the Supabase SQL editor and run.
 --
 -- Safe to re-run: every statement is idempotent.
--- Do NOT run supabase/tests/_local_auth_stub.sql here — Supabase
--- already provides the auth schema this references.
 -- ===================================================================
 
 
@@ -68,6 +66,12 @@ create table if not exists parties (
   cycle_lag_months  integer not null default 0 check (cycle_lag_months between 0 and 6),
   credit_source     text not null default 'not_set'
                       check (credit_source in ('approved', 'category_default', 'not_set')),
+
+  -- Marg's export carries no contact details, so these are entered by hand.
+  -- The import payload never includes them, which is what stops a daily file
+  -- from wiping a number someone typed in.
+  phone              text,
+  contact_person     text,
 
   responsible_person uuid references app_users (id),
   salesperson        uuid references app_users (id),
@@ -562,10 +566,20 @@ comment on function fn_expected_due_date is
   'Expected due date from a party''s credit model. Returns NULL for credit_type '
   '''none'' — an unrecorded term is never estimated (rule 1).';
 
+-- Databases created before contact details existed need these before the
+-- view below can reference them. Idempotent, and a no-op on a fresh install
+-- where 0001 already added them.
+alter table parties add column if not exists phone text;
+alter table parties add column if not exists contact_person text;
+
 -- -------------------------------------------------------------------
 -- v_latest_snapshot
 -- -------------------------------------------------------------------
-create or replace view v_latest_snapshot as
+drop view if exists v_portfolio_ageing;
+drop view if exists v_party_ageing;
+drop view if exists v_latest_snapshot;
+
+create view v_latest_snapshot as
   select *
   from snapshots
   order by report_date desc
@@ -583,7 +597,7 @@ create or replace view v_latest_snapshot as
 -- would read as "nothing is overdue"; NULL reads as "we cannot say", which
 -- is the truth and is what the stop rule depends on.
 -- -------------------------------------------------------------------
-create or replace view v_party_ageing as
+create view v_party_ageing as
 with latest as (
   select id, report_date from v_latest_snapshot
 ),
@@ -624,6 +638,8 @@ scaled as (
     p.display_name,
     p.normalised_name,
     p.category,
+    p.phone,
+    p.contact_person,
     p.status,
     p.credit_type,
     p.credit_source,
@@ -657,6 +673,8 @@ select
   display_name,
   normalised_name,
   category,
+  phone,
+  contact_person,
   status,
   credit_type,
   credit_source,
@@ -696,7 +714,7 @@ comment on view v_party_ageing is
 -- figure rather than folded in, because adding them would present age as
 -- lateness for 612 of the 819 parties.
 -- -------------------------------------------------------------------
-create or replace view v_portfolio_ageing as
+create view v_portfolio_ageing as
 select
   coalesce(sum(within_terms) filter (where not needs_credit_term and not is_credit_balance), 0) as within_terms,
   coalesce(sum(over_1_30)    filter (where not needs_credit_term and not is_credit_balance), 0) as over_1_30,
@@ -719,6 +737,12 @@ from v_party_ageing;
 alter view v_latest_snapshot   set (security_invoker = on);
 alter view v_party_ageing      set (security_invoker = on);
 alter view v_portfolio_ageing  set (security_invoker = on);
+
+-- A dropped view loses its grants, and these are rebuilt rather than replaced
+-- (a view's column list cannot be changed in place). Granting here, in the
+-- migration that creates them, keeps the two in step — relying on the blanket
+-- grant in 0002 would leave them unreadable, since that runs first.
+grant select on v_latest_snapshot, v_party_ageing, v_portfolio_ageing to authenticated;
 
 -- ############ 0004_priority.sql ############
 

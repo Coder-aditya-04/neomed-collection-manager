@@ -57,6 +57,12 @@ create table if not exists parties (
   credit_source     text not null default 'not_set'
                       check (credit_source in ('approved', 'category_default', 'not_set')),
 
+  -- Marg's export carries no contact details, so these are entered by hand.
+  -- The import payload never includes them, which is what stops a daily file
+  -- from wiping a number someone typed in.
+  phone              text,
+  contact_person     text,
+
   responsible_person uuid references app_users (id),
   salesperson        uuid references app_users (id),
   status             text not null default 'active'

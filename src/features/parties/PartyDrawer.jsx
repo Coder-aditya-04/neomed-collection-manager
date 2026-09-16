@@ -1,5 +1,7 @@
-import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabase.js';
+import { whatsAppLink } from '../registers/Registers.jsx';
 import { latestSnapshotQuery, partyBillsQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatAge, formatDate, formatCreditTerm } from '../../lib/format.js';
 import AgeingStrip, { bucketsOf, TermBadge, BUCKET_LABELS } from '../../components/AgeingStrip.jsx';
@@ -9,6 +11,7 @@ import AgeingStrip, { bucketsOf, TermBadge, BUCKET_LABELS } from '../../componen
  * you keep your place, your filter and your scroll position.
  */
 export default function PartyDrawer({ party, onClose }) {
+  const queryClient = useQueryClient();
   const { data: snapshot } = useQuery(latestSnapshotQuery());
   const { data: bills, isLoading } = useQuery(partyBillsQuery(party.party_id, snapshot?.id));
 
@@ -60,6 +63,10 @@ export default function PartyDrawer({ party, onClose }) {
             <Fig label="Oldest bill" value={formatAge(party.oldest_bill_age_days)} />
             <Fig label="Open bills" value={formatCount(party.bill_count)} />
           </div>
+
+          <Section title="Contact">
+            <Contact party={party} onSaved={() => queryClient.invalidateQueries()} />
+          </Section>
 
           <Section title="Ageing">
             {buckets ? (
@@ -167,6 +174,81 @@ function StopRule({ party }) {
       <p className="mt-2 text-[11px] text-faint text-pretty">
         Set the term in the credit master and this party becomes judgeable.
       </p>
+    </div>
+  );
+}
+
+/**
+ * The number is entered here and nowhere else. Marg's export carries no
+ * contact details and the import payload never includes them, so nothing a
+ * daily file does can overwrite what is typed in.
+ */
+function Contact({ party, onSaved }) {
+  const [value, setValue] = useState(party.phone ?? '');
+  const [person, setPerson] = useState(party.contact_person ?? '');
+  const [saving, setSaving] = useState(false);
+  const dirty = (value || '') !== (party.phone || '') || (person || '') !== (party.contact_person || '');
+  const wa = whatsAppLink(value, { ...party, contact_person: person });
+
+  async function save() {
+    setSaving(true);
+    await supabase
+      .from('parties')
+      .update({ phone: value || null, contact_person: person || null })
+      .eq('id', party.party_id);
+    setSaving(false);
+    onSaved?.();
+  }
+
+  return (
+    <div className="border border-hair bg-white p-3">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="block">
+          <span className="kicker mb-1 block">Mobile</span>
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="98765 43210"
+            className="tnum w-[140px] rounded-[2px] border border-hair px-[8px] py-[4px] text-[12px]"
+          />
+        </label>
+        <label className="block">
+          <span className="kicker mb-1 block">Contact person</span>
+          <input
+            value={person}
+            onChange={(e) => setPerson(e.target.value)}
+            placeholder="Dr Kulkarni"
+            className="w-[150px] rounded-[2px] border border-hair px-[8px] py-[4px] text-[12px]"
+          />
+        </label>
+        <button type="button" className="btn btn-primary px-3 py-[4px] text-[12px]" disabled={!dirty || saving} onClick={save}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+
+      {value ? (
+        <div className="mt-3 flex items-center gap-2">
+          <a
+            href={`tel:${String(value).replace(/[^\d+]/g, '')}`}
+            className="rounded-[2px] border border-hair bg-white px-[10px] py-[4px] text-[12px] no-underline text-ink hover:bg-[#F2F6F8]"
+          >
+            Call
+          </a>
+          {wa ? (
+            <a
+              href={wa}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-[2px] border border-[#25D366] bg-[#25D366]/10 px-[10px] py-[4px] text-[12px] no-underline text-[#0B7A3E] hover:bg-[#25D366]/20"
+            >
+              WhatsApp
+            </a>
+          ) : null}
+          <span className="text-[10.5px] text-faint text-pretty">
+            WhatsApp opens with a draft naming the balance — nothing is sent until you press send.
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

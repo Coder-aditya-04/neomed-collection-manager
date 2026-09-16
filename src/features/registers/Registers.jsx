@@ -12,6 +12,98 @@ import { formatInr, formatCount, formatDate } from '../../lib/format.js';
  * what closing a record means.
  */
 
+
+/* ------------------------------------------------------------------ */
+/* contacting a party                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Indian mobile numbers get typed every which way — with +91, with a leading
+ * 0, with spaces or dashes. WhatsApp wants bare digits with the country code.
+ */
+export function toWhatsAppNumber(raw) {
+  const digits = String(raw ?? '').replace(/\D/g, '');
+  if (!digits) return null;
+  if (digits.length === 10) return `91${digits}`;           // plain mobile
+  if (digits.length === 11 && digits.startsWith('0')) return `91${digits.slice(1)}`;
+  if (digits.length === 12 && digits.startsWith('91')) return digits;
+  if (digits.length === 13 && digits.startsWith('091')) return digits.slice(1);
+  return digits.length >= 10 ? digits : null;
+}
+
+/** The message opens pre-written but unsent — nothing is sent on their behalf. */
+export function whatsAppLink(phone, party) {
+  const n = toWhatsAppNumber(phone);
+  if (!n) return null;
+  const text =
+    `Dear ${party?.contact_person || party?.display_name || 'Sir/Madam'}, ` +
+    `this is Neomed Pharma Agencies regarding an outstanding balance of ` +
+    `${formatInr(party?.current_outstanding)}. Could you let us know when we may expect payment? Thank you.`;
+  return `https://wa.me/${n}?text=${encodeURIComponent(text)}`;
+}
+
+/** Buttons that open the phone's own dialer or WhatsApp. */
+function ContactActions({ party, compact }) {
+  const wa = whatsAppLink(party?.phone, party);
+  const tel = party?.phone ? `tel:${String(party.phone).replace(/[^\d+]/g, '')}` : null;
+  const cls = compact
+    ? 'rounded-[2px] border px-[7px] py-[2px] text-[10.5px] no-underline whitespace-nowrap'
+    : 'rounded-[2px] border px-[9px] py-[3px] text-[11.5px] no-underline whitespace-nowrap';
+
+  if (!party?.phone) {
+    return <span className="text-[10.5px] text-faint">no number</span>;
+  }
+  return (
+    <span className="flex items-center gap-[5px]">
+      <a href={tel} className={`${cls} border-hair bg-white text-ink hover:bg-[#F2F6F8]`}>Call</a>
+      {wa ? (
+        <a
+          href={wa}
+          target="_blank"
+          rel="noreferrer"
+          className={`${cls} border-[#25D366] bg-[#25D366]/10 text-[#0B7A3E] hover:bg-[#25D366]/20`}
+          title="Opens WhatsApp with a draft message — nothing is sent until you press send"
+        >
+          WhatsApp
+        </a>
+      ) : null}
+    </span>
+  );
+}
+
+/** Inline editor for a party's number, so it can be added mid-call. */
+function PhoneField({ party, onSaved }) {
+  const [value, setValue] = useState(party?.phone ?? '');
+  const [saving, setSaving] = useState(false);
+  const dirty = (value || '') !== (party?.phone || '');
+
+  async function save() {
+    setSaving(true);
+    const { error } = await supabase.from('parties').update({ phone: value || null }).eq('id', party.party_id);
+    setSaving(false);
+    if (!error) onSaved?.();
+  }
+
+  return (
+    <span className="flex items-center gap-[5px]">
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="mobile"
+        className="tnum w-[120px] rounded-[2px] border border-hair bg-white px-[6px] py-[3px] text-[11.5px]"
+      />
+      <button
+        type="button"
+        onClick={save}
+        disabled={!dirty || saving}
+        className="btn btn-secondary px-[8px] py-[2px] text-[11px]"
+      >
+        {saving ? '…' : 'Save'}
+      </button>
+    </span>
+  );
+}
+
 /* ================================================================== */
 /* Claims                                                             */
 /* ================================================================== */
@@ -224,7 +316,12 @@ export function FollowupsScreen() {
         {missed.length === 0 ? <Empty>Nothing committed has been missed.</Empty> : missed.map((f) => (
           <Row key={f.id} name={f.parties?.display_name ?? '—'} amount={formatInr(f.parties?.current_outstanding)}
             meta={`was due ${formatDate(f.next_followup_date)} · ${f.method}${f.outcome ? ` · ${f.outcome}` : ''}`}
-            action={<button type="button" className="btn btn-secondary px-[10px] py-[3px] text-[11.5px]" onClick={() => close.mutate(f.id)}>Close</button>} />
+            action={
+              <span className="flex items-center gap-[6px]">
+                <ContactActions party={partyOf(parties, f.party_id)} compact />
+                <button type="button" className="btn btn-secondary px-[10px] py-[3px] text-[11.5px]" onClick={() => close.mutate(f.id)}>Close</button>
+              </span>
+            } />
         ))}
       </Group>
 
@@ -232,7 +329,12 @@ export function FollowupsScreen() {
         {planned.length === 0 ? <Empty>Nothing scheduled.</Empty> : planned.map((f) => (
           <Row key={f.id} name={f.parties?.display_name ?? '—'} amount={formatInr(f.parties?.current_outstanding)}
             meta={`due ${formatDate(f.next_followup_date)} · ${f.method}${f.outcome ? ` · ${f.outcome}` : ''}`}
-            action={<button type="button" className="btn btn-secondary px-[10px] py-[3px] text-[11.5px]" onClick={() => close.mutate(f.id)}>Close</button>} />
+            action={
+              <span className="flex items-center gap-[6px]">
+                <ContactActions party={partyOf(parties, f.party_id)} compact />
+                <button type="button" className="btn btn-secondary px-[10px] py-[3px] text-[11.5px]" onClick={() => close.mutate(f.id)}>Close</button>
+              </span>
+            } />
         ))}
       </Group>
 
@@ -415,6 +517,11 @@ function Row({ name, amount, meta, action }) {
   );
 }
 
+/** The ageing row carries the party id; the number lives on the party. */
+function partyOf(parties, id) {
+  return parties?.find((p) => p.party_id === id) ?? null;
+}
+
 function Empty({ children }) {
   return <div className="px-4 py-3 text-[12px] text-faint">{children}</div>;
 }
@@ -433,10 +540,11 @@ function Field({ label, children }) {
  */
 function PartyPicker({ parties, value, onChange }) {
   const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
   const matches = useMemo(() => {
     if (!parties) return [];
     const n = q.toUpperCase().trim();
-    if (!n) return parties.slice(0, 8);
+    if (!n) return parties.slice(0, 10);
     return parties.filter((p) => p.display_name.toUpperCase().includes(n)).slice(0, 8);
   }, [parties, q]);
   const chosen = parties?.find((p) => p.party_id === value);
@@ -452,19 +560,35 @@ function PartyPicker({ parties, value, onChange }) {
         </div>
       ) : (
         <div className="relative">
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search party…" className={`${INPUT} w-[220px]`} />
-          {q && matches.length > 0 ? (
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setTimeout(() => setOpen(false), 150)}
+            placeholder={parties ? `Search ${parties.length} parties…` : 'Loading parties…'}
+            className={`${INPUT} w-[220px]`}
+          />
+          {/* Opens on focus, not only once something is typed — otherwise the
+              field looks broken to anyone who does not know to start typing. */}
+          {open && matches.length > 0 ? (
             <div className="absolute z-20 mt-1 max-h-[220px] w-[280px] overflow-auto border border-hair bg-white shadow-lg">
               {matches.map((p) => (
                 <button
                   key={p.party_id}
                   type="button"
-                  onClick={() => { onChange(p.party_id); setQ(''); }}
-                  className="block w-full truncate px-[8px] py-[5px] text-left text-[12px] hover:bg-[#F2F6F8]"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { onChange(p.party_id); setQ(''); setOpen(false); }}
+                  className="block w-full px-[8px] py-[5px] text-left text-[12px] hover:bg-[#F2F6F8]"
                 >
-                  {p.display_name}
+                  <span className="block truncate">{p.display_name}</span>
+                  <span className="tnum block text-[10px] text-faint">{formatInr(p.current_outstanding)}</span>
                 </button>
               ))}
+            </div>
+          ) : null}
+          {open && parties && matches.length === 0 ? (
+            <div className="absolute z-20 mt-1 w-[280px] border border-hair bg-white px-[8px] py-[6px] text-[11.5px] text-faint shadow-lg">
+              No party matches "{q}".
             </div>
           ) : null}
         </div>
