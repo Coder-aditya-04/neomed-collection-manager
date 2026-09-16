@@ -3,7 +3,7 @@
 A receivables system for Neomed Pharma Agencies, built on the daily
 outstanding export from Marg ERP.
 
-**Live:** https://coder-aditya-04.github.io/neomed-collection-manager/
+**Live:** https://neomed-collection-manager.vercel.app/
 
 ---
 

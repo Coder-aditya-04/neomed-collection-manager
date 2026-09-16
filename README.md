@@ -5,7 +5,7 @@ data source is a bill-wise outstanding `.xls` exported by hand from Marg ERP.
 
 **Status: all three phases built. Live on real data.**
 
-- **Live:** deployed on Vercel (the repo is private, so GitHub Pages no longer serves it)
+- **Live:** https://neomed-collection-manager.vercel.app/
 - **Supabase:** project `goncujtgaxoegtozpnbc`
 - **Docs:** [Handover](docs/HANDOVER.md) (for the client) · [Operations](docs/OPERATIONS.md) (for whoever maintains this)
 - **Tests:** 210 — 108 JavaScript, 102 SQL
