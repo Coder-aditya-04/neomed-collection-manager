@@ -10,8 +10,8 @@ import { formatDate } from '../../lib/format.js';
  * a screen that is not there yet.
  */
 const NAV = [
-  { to: '/', label: 'Today', step: 6 },
-  { to: '/parties', label: 'Parties', step: 4 },
+  { to: '/', label: 'Today', step: null },
+  { to: '/parties', label: 'Parties', step: null },
   { to: '/credit-master', label: 'Credit master', step: 5 },
   { to: '/followups', label: 'Follow-ups', step: 7 },
   { to: '/promises', label: 'Promises', step: 7 },

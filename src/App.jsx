@@ -5,6 +5,8 @@ import AppShell from './features/shell/AppShell.jsx';
 import LoginScreen from './features/shell/LoginScreen.jsx';
 import NotBuiltYet from './features/shell/NotBuiltYet.jsx';
 import ImportScreen from './features/import/ImportScreen.jsx';
+import DashboardScreen from './features/dashboard/DashboardScreen.jsx';
+import PartiesScreen from './features/parties/PartiesScreen.jsx';
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = still checking
@@ -24,27 +26,9 @@ export default function App() {
   return (
     <Routes>
       <Route element={<AppShell session={session} />}>
-        <Route
-          index
-          element={
-            <NotBuiltYet
-              title="Today"
-              step={6}
-              what="Headline figures, the portfolio ageing strip, the priority list, concentration, and missed follow-ups. The SQL behind it — v_party_ageing, v_portfolio_ageing and fn_priority_list — is already built and tested."
-            />
-          }
-        />
+        <Route index element={<DashboardScreen />} />
         <Route path="import" element={<ImportScreen />} />
-        <Route
-          path="parties"
-          element={
-            <NotBuiltYet
-              title="Parties"
-              step={4}
-              what="The full virtualised list at 27px rows, sortable and filterable, with the party detail drawer over it."
-            />
-          }
-        />
+        <Route path="parties" element={<PartiesScreen />} />
         <Route
           path="credit-master"
           element={
