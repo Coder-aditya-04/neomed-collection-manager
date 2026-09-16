@@ -40,6 +40,9 @@ done
 echo "==> ageing + priority"
 psql_q -d "$DB" -f "$HERE/ageing_priority_test.sql"
 
+echo "==> diffing, profiles and promises"
+psql_q -d "$DB" -f "$HERE/diff_profiles_test.sql"
+
 echo "==> row level security"
 psql_q -d "$DB" -f "$HERE/rls_test.sql"
 

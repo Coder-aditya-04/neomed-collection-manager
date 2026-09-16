@@ -3,22 +3,17 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
 import { formatDate } from '../../lib/format.js';
 
-/**
- * The sidebar carries every route in the spec, including the ones later build
- * steps will fill in. Hiding them would misrepresent the shape of the product;
- * each unbuilt one says which step it arrives in, so nobody clicks expecting
- * a screen that is not there yet.
- */
+/** Every route in the spec. All of them are built. */
 const NAV = [
   { to: '/', label: 'Today', step: null },
   { to: '/parties', label: 'Parties', step: null },
   { to: '/credit-master', label: 'Credit master', step: null },
-  { to: '/followups', label: 'Follow-ups', step: 7 },
-  { to: '/promises', label: 'Promises', step: 7 },
-  { to: '/claims', label: 'Claims', step: 7 },
-  { to: '/assistant', label: 'Assistant', step: 9 },
+  { to: '/followups', label: 'Follow-ups', step: null },
+  { to: '/promises', label: 'Promises', step: null },
+  { to: '/claims', label: 'Claims', step: null },
+  { to: '/assistant', label: 'Assistant', step: null },
   { to: '/import', label: 'Import', step: null },
-  { to: '/settings', label: 'Settings', step: 7 },
+  { to: '/settings', label: 'Settings', step: null },
 ];
 
 const TITLES = {
