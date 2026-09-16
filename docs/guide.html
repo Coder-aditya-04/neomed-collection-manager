@@ -232,8 +232,19 @@
 <p>
   The drawer shows the ageing split, every open bill, and — where the header and
   bill rows disagree — both figures side by side with a note saying which one is
-  being used.
+  being used. It also carries:
 </p>
+<ul>
+  <li><strong>Contact</strong> — the mobile number and contact person. Marg exports
+  neither, so they are typed here once. An import can never overwrite them.
+  <strong>Call</strong> opens the dialer; <strong>WhatsApp</strong> opens a draft naming
+  the party and the balance — nothing is sent until you press send.</li>
+  <li><strong>Activity</strong> — one timeline of what the team did and what the money
+  did: follow-ups, promises, claims, and payments derived from comparing exports.</li>
+  <li><strong>Log follow-up</strong> — record a call without leaving the party.</li>
+  <li><strong>Ask the assistant</strong> — hands that party's name straight to the
+  assistant and asks for its payment history.</li>
+</ul>
 
 <h3>Credit master</h3>
 <p>The data-entry screen, built for speed. Two models, because retailers and hospitals are paid differently:</p>
@@ -249,6 +260,12 @@
   Select several rows and apply one term to all of them — most hospitals share a
   cycle. The progress header shows how much of the book becomes judgeable as you
   work, so the effort has a visible end.
+</p>
+<p>
+  Every party that owes money is here, not a fixed top slice. The list starts at
+  150 rows and grows on request, because several hundred rows of live input
+  fields at once makes typing sluggish. Search by name, or tick
+  <em>Only those without a term</em> to hide what is already done.
 </p>
 
 <h3>Import</h3>
@@ -300,7 +317,16 @@
   <div class="qa"><div class="q">Which parties cannot I judge?</div><div class="a">Everything blocked for want of a credit term, largest first.</div></div>
   <div class="qa"><div class="q">Who is blocked by a claim?</div><div class="a">Money held by our own pending action.</div></div>
   <div class="qa"><div class="q">What changed since the last import?</div><div class="a">Money in, new billing, and the net movement.</div></div>
+  <div class="qa"><div class="q">Who is in credit?</div><div class="a">The parties holding an advance rather than a debt.</div></div>
+  <div class="qa"><div class="q">Which accounts are too small to chase?</div><div class="a">Below the threshold, with the cost argument.</div></div>
+  <div class="qa"><div class="q">How many parties are there?</div><div class="a">Counts for the current snapshot.</div></div>
 </div>
+
+<p style="font-size:9.5pt;color:var(--mute);">
+  Ask one thing at a time. <em>"Which party is our priority that has the highest
+  outstanding"</em> is two different rankings in one sentence and will not match;
+  ask for the call list or the top parties separately.
+</p>
 
 <h3>What it will not do</h3>
 <p>
@@ -407,6 +433,25 @@
 </p>
 </section>
 
+<h3>Adding someone to the team</h3>
+<ol class="steps">
+  <li><strong>Create the login.</strong> In Supabase, <strong>Authentication → Users →
+  Add user</strong>. Enter their email and a password, and tick <em>Auto Confirm User</em>
+  — without that they cannot sign in until they click a confirmation email.</li>
+  <li><strong>Give them a role.</strong> In the SQL editor:
+  <div style="font-family:var(--mono);font-size:8.5pt;background:var(--rule);padding:8px 10px;margin-top:6px;">
+    insert into app_users (id, full_name, role)<br>
+    select id, 'S. Pawar', 'sales' from auth.users where email = 'sales@neomed.in';
+  </div>
+  Use <code>owner</code>, <code>accounts</code> or <code>sales</code>.</li>
+  <li><strong>Send them the link and their password.</strong> They change it from the
+  sign-in screen.</li>
+</ol>
+<p style="font-size:9.5pt;color:var(--mute);">
+  A person with a login but no role signs in and sees nothing at all. That is the
+  security working, not a fault — the role is what grants access.
+</p>
+
 <!-- ============================ WHERE IT STANDS ============================ -->
 <section>
 <h2>Where it stands today</h2>
@@ -462,6 +507,70 @@
   <li><strong>Behaviour ratings need history.</strong> A party stays unrated until three of its bills have been settled and observed.</li>
   <li><strong>Some bill series are unclassified.</strong> 1,634 rows use voucher prefixes (CRA, CRB, CRC, CRD) that were not in the original specification. They are imported and counted correctly, but grouped as "other" until someone at Neomed says what those series mean.</li>
 </ul>
+
+<h2 class="page-break">Questions we need answered</h2>
+
+<p>
+  Six things the software cannot work out for itself. The first is the one that
+  matters; the rest are smaller and can wait.
+</p>
+
+<table class="keep">
+  <thead><tr><th style="width:4%"></th><th>Question</th><th style="width:34%">Why it matters</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="num">1</td>
+      <td><strong>What credit term applies to each of your largest parties?</strong>
+      For hospitals: by which day must bills reach them, on which day do they release
+      payment, and is that the same month or the next?</td>
+      <td>Nothing can be called overdue without it. All ₹8.06 Cr currently sits under
+      "cannot be judged". This is the single input that turns the system on.</td>
+    </tr>
+    <tr>
+      <td class="num">2</td>
+      <td><strong>What are the CRA, CRB, CRC and CRD voucher series?</strong> 1,634 rows
+      use them — CRD alone carries ₹1.35 Cr, and 158 of these rows are negative.</td>
+      <td>They are imported and counted correctly but grouped as "other". Naming them
+      would let receipts and adjustments be told apart from sales.</td>
+    </tr>
+    <tr>
+      <td class="num">3</td>
+      <td><strong>Marg already holds a due date for 19 parties</strong>, implying 60-day
+      or 30-day terms. Are those correct and approved?</td>
+      <td>A yes turns 19 parties judgeable immediately. They are deliberately not applied
+      until a person confirms them.</td>
+    </tr>
+    <tr>
+      <td class="num">4</td>
+      <td><strong>Should a party be chased at 60 days past term, or 90?</strong></td>
+      <td>The buckets are 60+ today. Changing it is a small edit, but it changes who
+      appears on the call list.</td>
+    </tr>
+    <tr>
+      <td class="num">5</td>
+      <td><strong>Is ₹10,000 the right point below which a balance is not worth chasing?</strong>
+      328 parties sit under it, ₹9.91 L between them.</td>
+      <td>Those parties are excluded from the call list. The threshold is adjustable
+      in Settings.</td>
+    </tr>
+    <tr>
+      <td class="num">6</td>
+      <td><strong>Who should have a login, and what should each of them be able to
+      change?</strong></td>
+      <td>Owner, accounts and sales differ in what they may write. Credit terms are
+      restricted deliberately.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="warn-box keep">
+  <p style="margin:0;font-size:9.5pt;">
+    <strong>One more, worth asking early:</strong> for 46 parties Marg's own header total
+    disagrees with the sum of its bill rows, by about ₹1 crore in aggregate. The system
+    follows the header, as Marg does. Does the accounts team know why those differ?
+    It may be nothing, or it may be something worth correcting at source.
+  </p>
+</div>
 
 <footer>
   Neomed Collection Manager · user guide and handover · 16 September 2026<br>

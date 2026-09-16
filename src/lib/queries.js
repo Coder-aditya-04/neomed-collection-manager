@@ -120,3 +120,39 @@ export function snapshotWarningsQuery(snapshotId) {
     },
   };
 }
+
+/**
+ * Everything that has happened with one party, from the four places it can
+ * be recorded, merged into a single timeline.
+ *
+ * Payment events come from bill_changes, which is derived rather than typed —
+ * so the timeline mixes what the team did with what the money actually did.
+ */
+export function partyActivityQuery(partyId) {
+  return {
+    queryKey: ['party-activity', partyId],
+    enabled: Boolean(partyId),
+    queryFn: async () => {
+      const [followups, promises, claims, changes] = await Promise.all([
+        supabase.from('followups').select('*').eq('party_id', partyId)
+          .order('contact_date', { ascending: false }).limit(50),
+        supabase.from('promises').select('*').eq('party_id', partyId)
+          .order('promised_on', { ascending: false }).limit(50),
+        supabase.from('claims').select('*').eq('party_id', partyId)
+          .order('raised_on', { ascending: false }).limit(50),
+        supabase.from('bill_changes').select('*').eq('party_id', partyId)
+          .in('change_type', ['payment', 'settled'])
+          .order('detected_to', { ascending: false }).limit(50),
+      ]);
+      for (const r of [followups, promises, claims, changes]) {
+        if (r.error) throw r.error;
+      }
+      return {
+        followups: followups.data ?? [],
+        promises: promises.data ?? [],
+        claims: claims.data ?? [],
+        changes: changes.data ?? [],
+      };
+    },
+  };
+}

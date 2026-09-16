@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { partiesAgeingQuery } from '../../lib/queries.js';
 import { matchIntent, CAPABILITIES } from './intents.js';
@@ -16,6 +16,8 @@ const CHIPS = [
 ];
 
 export default function AssistantScreen() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { data: parties } = useQuery(partiesAgeingQuery());
   const [thread, setThread] = useState([]);
   const [draft, setDraft] = useState('');
@@ -25,6 +27,18 @@ export default function AssistantScreen() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [thread, busy]);
+
+  const askRef = useRef(null);
+
+  // A question handed over from another screen — "Ask the assistant" on the
+  // party drawer. Waits for the party list, since routing a named party needs
+  // it, and clears the state so a refresh does not ask again.
+  useEffect(() => {
+    const handed = location.state?.question;
+    if (!handed || !parties) return;
+    navigate(location.pathname, { replace: true, state: null });
+    askRef.current?.(handed);
+  }, [location.state, location.pathname, parties, navigate]);
 
   async function ask(question) {
     const q = question.trim();
@@ -39,6 +53,8 @@ export default function AssistantScreen() {
     setThread((t) => [...t, { role: 'assistant', routed, answer }]);
     setBusy(false);
   }
+
+  askRef.current = ask;
 
   return (
     <div className="animate-screen-in flex h-full min-h-0 flex-col px-[18px] pb-4 pt-4">

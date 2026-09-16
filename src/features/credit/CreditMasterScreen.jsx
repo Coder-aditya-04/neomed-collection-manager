@@ -23,24 +23,37 @@ export default function CreditMasterScreen() {
   const [toast, setToast] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
   const [bulk, setBulk] = useState({ credit_type: 'cycle', credit_days: 60, cycle_submit_day: 5, cycle_pay_day: 25, cycle_lag_months: 1 });
+  const [query, setQuery] = useState('');
+  const [onlyUnset, setOnlyUnset] = useState(false);
+  // Rendering 700-odd rows of live inputs at once makes typing sluggish, so
+  // the list grows on demand rather than being capped at an arbitrary number.
+  const [limit, setLimit] = useState(150);
   const toastTimer = useRef(null);
 
-  const rows = useMemo(() => {
+  const owing = useMemo(() => {
     if (!parties) return [];
     return parties
       .filter((p) => Number(p.current_outstanding) > 0)
       .sort((a, b) => Number(b.current_outstanding) - Number(a.current_outstanding));
   }, [parties]);
 
+  const rows = useMemo(() => {
+    let out = owing;
+    if (onlyUnset) out = out.filter((p) => p.credit_source === 'not_set');
+    const q = query.toUpperCase().trim();
+    if (q) out = out.filter((p) => p.display_name.toUpperCase().includes(q));
+    return out;
+  }, [owing, onlyUnset, query]);
+
   const progress = useMemo(() => {
-    const top100 = rows.slice(0, 100);
+    const top100 = owing.slice(0, 100);
     const done = top100.filter((p) => p.credit_source === 'approved').length;
-    const total = rows.reduce((a, p) => a + Number(p.current_outstanding), 0);
-    const classifiable = rows
+    const total = owing.reduce((a, p) => a + Number(p.current_outstanding), 0);
+    const classifiable = owing
       .filter((p) => p.credit_source === 'approved')
       .reduce((a, p) => a + Number(p.current_outstanding), 0);
     return { done, top100Count: top100.length, total, classifiable };
-  }, [rows]);
+  }, [owing]);
 
   function flash(message) {
     clearTimeout(toastTimer.current);
@@ -117,6 +130,23 @@ export default function CreditMasterScreen() {
         </p>
       </section>
 
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setLimit(150); }}
+          placeholder={`Search ${formatCount(owing.length)} parties…`}
+          className="w-[240px] rounded-[2px] border border-hair bg-white px-[10px] py-[5px] text-[12.5px]"
+        />
+        <label className="flex items-center gap-[6px] text-[12px]">
+          <input type="checkbox" checked={onlyUnset} onChange={(e) => { setOnlyUnset(e.target.checked); setLimit(150); }} />
+          Only those without a term
+        </label>
+        <span className="tnum ml-auto text-[11.5px] text-mute">
+          {formatCount(rows.length)} shown of {formatCount(owing.length)}
+        </span>
+      </div>
+
       {/* bulk apply */}
       <section className="panel mb-3 px-4 py-3">
         <div className="flex flex-wrap items-end gap-3">
@@ -169,7 +199,7 @@ export default function CreditMasterScreen() {
             </tr>
           </thead>
           <tbody>
-            {rows.slice(0, 150).map((p, i) => (
+            {rows.slice(0, limit).map((p, i) => (
               <PartyRow
                 key={p.party_id}
                 party={p}
@@ -189,13 +219,24 @@ export default function CreditMasterScreen() {
             ))}
           </tbody>
         </table>
-        {rows.length > 150 ? (
+        {rows.length > limit ? (
+          <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+            <span className="text-[11.5px] text-faint">
+              Showing {formatCount(limit)} of {formatCount(rows.length)} — these carry{' '}
+              {formatPct(rows.slice(0, limit).reduce((a, p) => a + Number(p.current_outstanding), 0), progress.total)} of the book.
+            </span>
+            <button type="button" className="btn btn-secondary px-3 py-[4px] text-[12px]" onClick={() => setLimit(limit + 250)}>
+              Show 250 more
+            </button>
+            <button type="button" className="btn btn-secondary px-3 py-[4px] text-[12px]" onClick={() => setLimit(rows.length)}>
+              Show all {formatCount(rows.length)}
+            </button>
+          </div>
+        ) : (
           <p className="px-4 py-3 text-[11.5px] text-faint">
-            Showing the largest 150 of {formatCount(rows.length)}. These carry{' '}
-            {formatPct(rows.slice(0, 150).reduce((a, p) => a + Number(p.current_outstanding), 0), progress.total)} of
-            the book.
+            All {formatCount(rows.length)} shown.
           </p>
-        ) : null}
+        )}
       </div>
 
       {toast ? (

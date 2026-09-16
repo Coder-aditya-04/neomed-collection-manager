@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
 import { whatsAppLink } from '../registers/Registers.jsx';
-import { latestSnapshotQuery, partyBillsQuery } from '../../lib/queries.js';
+import { useNavigate } from 'react-router-dom';
+import { latestSnapshotQuery, partyBillsQuery, partyActivityQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatAge, formatDate, formatCreditTerm } from '../../lib/format.js';
 import AgeingStrip, { bucketsOf, TermBadge, BUCKET_LABELS } from '../../components/AgeingStrip.jsx';
 
@@ -12,13 +13,22 @@ import AgeingStrip, { bucketsOf, TermBadge, BUCKET_LABELS } from '../../componen
  */
 export default function PartyDrawer({ party, onClose }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { data: snapshot } = useQuery(latestSnapshotQuery());
   const { data: bills, isLoading } = useQuery(partyBillsQuery(party.party_id, snapshot?.id));
+  const { data: activity } = useQuery(partyActivityQuery(party.party_id));
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Lock the page behind the drawer. Without this the party list keeps
+    // scrolling under it, which reads as the drawer itself coming apart.
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previous;
+    };
   }, [onClose]);
 
   const buckets = bucketsOf(party);
@@ -146,9 +156,160 @@ export default function PartyDrawer({ party, onClose }) {
               </div>
             )}
           </Section>
+
+          <Section title="Activity">
+            <Timeline activity={activity} party={party} />
+          </Section>
         </div>
+
+        <footer className="flex flex-wrap gap-2 border-t border-hair bg-white/90 px-[18px] py-3 backdrop-blur">
+          <LogFollowUp party={party} onSaved={() => queryClient.invalidateQueries()} />
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => navigate('/assistant', { state: { question: `What is the payment history of ${party.display_name}?` } })}
+          >
+            Ask the assistant
+          </button>
+        </footer>
       </aside>
     </>
+  );
+}
+
+/**
+ * What the team did and what the money did, on one spine and in one order.
+ * Payment events are derived from snapshot comparison, so they only appear
+ * once two days' files exist — the empty state says as much rather than
+ * leaving a blank panel.
+ */
+function Timeline({ activity, party }) {
+  if (!activity) return <p className="text-[12px] text-mute">Loading…</p>;
+
+  const events = [
+    ...activity.followups.map((f) => ({
+      date: f.contact_date,
+      tone: f.closed ? 'done' : 'plain',
+      title: `${f.method.charAt(0).toUpperCase() + f.method.slice(1)}${f.outcome ? '' : ' logged'}`,
+      detail: [f.outcome, f.next_followup_date ? `Next follow-up ${formatDate(f.next_followup_date)}` : null]
+        .filter(Boolean).join(' · '),
+    })),
+    ...activity.promises.map((p) => ({
+      date: p.promised_on,
+      tone: p.status === 'broken' ? 'bad' : p.status === 'kept' ? 'good' : 'warn',
+      title: 'Promise recorded',
+      detail: `${formatInr(p.promised_amount)} by ${formatDate(p.due_date)} — ${p.status}` +
+        (p.status === 'open' ? ', no supporting payment yet' : `, received ${formatInr(p.received_amount)}`),
+    })),
+    ...activity.claims.map((c) => ({
+      date: c.raised_on,
+      tone: c.status === 'open' ? 'claim' : 'done',
+      title: `Claim · ${c.claim_type.replace('_', ' ')}`,
+      detail: `${formatInr(c.payment_held)} held${c.pending_with ? ` · with ${c.pending_with}` : ''} — ${c.status}`,
+    })),
+    ...activity.changes.map((b) => ({
+      date: b.detected_to,
+      tone: 'good',
+      title: b.change_type === 'settled' ? 'Bill cleared' : 'Part payment',
+      detail: `${formatInr(b.delta)} against ${b.bill_no}`,
+    })),
+  ].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+  if (events.length === 0) {
+    return (
+      <div className="border border-hair bg-white p-3">
+        <p className="text-[12px] text-mute text-pretty">
+          Nothing recorded for {party.display_name} yet. Follow-ups, promises and claims appear here
+          as they are logged.
+        </p>
+        <p className="mt-2 text-[11px] text-faint text-pretty">
+          Payments appear on their own, worked out by comparing one day's export against the next —
+          so they start showing once a second file has been imported.
+        </p>
+      </div>
+    );
+  }
+
+  const dot = {
+    good: 'var(--color-age-0)', warn: '#D8A21A', bad: 'var(--color-age-3)',
+    claim: 'var(--color-claim)', done: '#B4C0C9', plain: '#8A98A4',
+  };
+
+  return (
+    <div className="border border-hair bg-white">
+      {events.slice(0, 25).map((e, i) => (
+        <div key={i} className="grid gap-[10px] border-b border-rule px-3 py-[9px] last:border-b-0"
+             style={{ gridTemplateColumns: '58px 10px minmax(0,1fr)' }}>
+          <span className="tnum pt-[2px] text-[11px] text-mute">{shortDate(e.date)}</span>
+          <span className="mt-[6px] h-[7px] w-[7px] flex-none" style={{ background: dot[e.tone] }} />
+          <span className="min-w-0">
+            <span className="block text-[12.5px] font-semibold">{e.title}</span>
+            {e.detail ? <span className="mt-[1px] block text-[11.5px] text-mute text-pretty">{e.detail}</span> : null}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function shortDate(iso) {
+  const full = formatDate(iso);
+  return full === '—' ? full : full.split(' ').slice(0, 2).join(' ');
+}
+
+/** Logging a call without leaving the party you are looking at. */
+function LogFollowUp({ party, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [method, setMethod] = useState('call');
+  const [outcome, setOutcome] = useState('');
+  const [next, setNext] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    const { error } = await supabase.from('followups').insert({
+      party_id: party.party_id,
+      method,
+      outcome: outcome || null,
+      next_followup_date: next || null,
+    });
+    setSaving(false);
+    if (!error) {
+      setOpen(false); setOutcome(''); setNext('');
+      onSaved?.();
+    }
+  }
+
+  if (!open) {
+    return <button type="button" className="btn btn-primary" onClick={() => setOpen(true)}>Log follow-up</button>;
+  }
+
+  return (
+    <div className="w-full">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="block">
+          <span className="kicker mb-1 block">Method</span>
+          <select value={method} onChange={(e) => setMethod(e.target.value)}
+                  className="rounded-[2px] border border-hair bg-white px-[8px] py-[4px] text-[12px]">
+            {['call', 'visit', 'whatsapp', 'email'].map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </label>
+        <label className="block flex-1 min-w-[180px]">
+          <span className="kicker mb-1 block">Outcome</span>
+          <input value={outcome} onChange={(e) => setOutcome(e.target.value)} placeholder="Promised Friday"
+                 className="w-full rounded-[2px] border border-hair bg-white px-[8px] py-[4px] text-[12px]" />
+        </label>
+        <label className="block">
+          <span className="kicker mb-1 block">Next follow-up</span>
+          <input type="date" value={next} onChange={(e) => setNext(e.target.value)}
+                 className="rounded-[2px] border border-hair bg-white px-[8px] py-[4px] text-[12px]" />
+        </label>
+        <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+    </div>
   );
 }
 
