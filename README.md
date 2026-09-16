@@ -5,10 +5,10 @@ data source is a bill-wise outstanding `.xls` exported by hand from Marg ERP.
 
 **Status: all three phases built. Live on real data.**
 
-- **Live:** https://coder-aditya-04.github.io/neomed-collection-manager/
+- **Live:** deployed on Vercel (the repo is private, so GitHub Pages no longer serves it)
 - **Supabase:** project `goncujtgaxoegtozpnbc`
 - **Docs:** [Handover](docs/HANDOVER.md) (for the client) · [Operations](docs/OPERATIONS.md) (for whoever maintains this)
-- **Tests:** 206 — 104 JavaScript, 102 SQL
+- **Tests:** 210 — 108 JavaScript, 102 SQL
 
 The 9 Sep export is imported: 819 parties, 8,197 bills, ₹7.93 Cr net, matching
 Marg exactly.
