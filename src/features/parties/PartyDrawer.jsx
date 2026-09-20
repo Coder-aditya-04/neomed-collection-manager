@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
 import { whatsAppLink } from '../registers/Registers.jsx';
@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { latestSnapshotQuery, partyBillsQuery, partyActivityQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatAge, formatDate, formatCreditTerm } from '../../lib/format.js';
 import AgeingStrip, { bucketsOf, TermBadge, BUCKET_LABELS } from '../../components/AgeingStrip.jsx';
+import Overlay from '../../components/Overlay.jsx';
 
 /**
  * Party detail, as a drawer over the list — the list never navigates away, so
@@ -18,35 +19,11 @@ export default function PartyDrawer({ party, onClose }) {
   const { data: bills, isLoading } = useQuery(partyBillsQuery(party.party_id, snapshot?.id));
   const { data: activity } = useQuery(partyActivityQuery(party.party_id));
 
-  useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    // Lock the page behind the drawer. Without this the party list keeps
-    // scrolling under it, which reads as the drawer itself coming apart.
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.body.classList.add('dialog-open');
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = previous;
-      document.body.classList.remove('dialog-open');
-    };
-  }, [onClose]);
-
   const buckets = bucketsOf(party);
 
   return (
-    <>
-      <div
-        className="fixed inset-0 z-40 bg-ink/40"
-        onClick={onClose}
-        aria-hidden
-      />
-      <aside
-        role="dialog"
-        aria-label={party.display_name}
-        className="fixed inset-y-0 right-0 z-50 flex w-[min(560px,92vw)] flex-col border-l border-hair bg-canvas shadow-[0_0_40px_rgba(15,31,46,.22)]"
-      >
+    <Overlay onClose={onClose} label={party.display_name}>
+      <aside className="overlay-panel overlay-drawer flex w-[min(560px,92vw)] flex-col border-l border-hair bg-canvas shadow-[0_0_40px_rgba(15,31,46,.22)]">
         <header className="flex items-start gap-3 border-b border-hair bg-white/80 px-[18px] py-3 backdrop-blur">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[16px] font-semibold tracking-[-0.015em]">{party.display_name}</h2>
@@ -179,7 +156,7 @@ export default function PartyDrawer({ party, onClose }) {
           </button>
         </footer>
       </aside>
-    </>
+    </Overlay>
   );
 }
 

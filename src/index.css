@@ -247,6 +247,43 @@
     pointer-events: none;
   }
 
+  /* Every drawer and dialog sits in this, portalled to the body. */
+  .overlay-root {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+  }
+  .overlay-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 31, 46, 0.32);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    animation: fadeIn 180ms ease-out both;
+  }
+  .overlay-panel {
+    position: absolute;
+  }
+
+  /* Slides in from the edge. */
+  .overlay-drawer {
+    inset-block: 0;
+    right: 0;
+    animation: drawerIn 220ms var(--ease-dc) both;
+  }
+
+  /*
+   * Centred, using the standalone `translate` property rather than a
+   * transform. The entrance animates `scale` and `opacity` only, so it cannot
+   * clobber the centring the way a keyframe ending in `transform: none` would.
+   */
+  .overlay-center {
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    animation: dialogIn 200ms var(--ease-dc) both;
+  }
+
   .kicker {
     font-size: 10px;
     letter-spacing: 0.11em;
@@ -334,6 +371,21 @@
 @keyframes pulseGlow {
   0%, 100% { opacity: .55; }
   50%      { opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes drawerIn {
+  from { transform: translateX(18px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+@keyframes dialogIn {
+  from { scale: 0.985; opacity: 0; }
+  to   { scale: 1; opacity: 1; }
 }
 
 @keyframes screenIn {

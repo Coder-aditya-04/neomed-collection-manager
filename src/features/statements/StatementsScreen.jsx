@@ -5,6 +5,7 @@ import { latestSnapshotQuery, partiesAgeingQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatDate } from '../../lib/format.js';
 import { buildStatementText, statementWhatsAppLink, planBatch } from './statement.js';
 import StatementDocument from './StatementDocument.jsx';
+import Overlay from '../../components/Overlay.jsx';
 
 /**
  * Month-end statements.
@@ -266,22 +267,6 @@ function PreviewDialog({ preview, onClose, onShared }) {
   // dialog is what makes it reviewable at a glance instead of by scrolling.
   const [fit, setFit] = useState(true);
 
-  useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    // Stops the drifting background lines and the header rail while this is
-    // open. A statement can run to four hundred rows, and repainting those
-    // animations behind it on every scroll frame is what locked the screen.
-    document.body.classList.add('dialog-open');
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = previous;
-      document.body.classList.remove('dialog-open');
-    };
-  }, [onClose]);
-
   /**
    * Hand the image to the phone's own share sheet, which lists WhatsApp.
    *
@@ -354,10 +339,8 @@ function PreviewDialog({ preview, onClose, onShared }) {
   }
 
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-ink/50" onClick={onClose} aria-hidden />
-      <div role="dialog" aria-label="Statement"
-           className="fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[min(860px,94vw)] -translate-x-1/2 -translate-y-1/2 flex-col border border-hair bg-canvas shadow-[0_0_50px_rgba(15,31,46,.3)]">
+    <Overlay onClose={onClose} label="Statement">
+      <div className="overlay-panel overlay-center flex max-h-[92vh] w-[min(860px,94vw)] flex-col border border-hair bg-canvas shadow-[0_0_50px_rgba(15,31,46,.3)]">
         <div className="flex flex-wrap items-center gap-2 border-b border-hair bg-white px-4 py-3">
           <h3 className="mr-auto truncate text-[14px] font-semibold">{preview.party.display_name}</h3>
           {canShareFiles ? (
@@ -414,7 +397,7 @@ function PreviewDialog({ preview, onClose, onShared }) {
             : 'On a computer, browsers will not hand a file to WhatsApp. Download the image and attach it, or open this page on your phone, where Send on WhatsApp attaches it directly. When printing, untick “Headers and footers” in the print dialog to drop the browser\'s own date and page stamp.'}
         </div>
       </div>
-    </>
+    </Overlay>
   );
 }
 

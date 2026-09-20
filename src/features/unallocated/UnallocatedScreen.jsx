@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
 import { latestSnapshotQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatAge, formatDate } from '../../lib/format.js';
 import { whatsAppLink } from '../registers/Registers.jsx';
 import { displayBillNo, plain } from '../statements/StatementDocument.jsx';
+import Overlay from '../../components/Overlay.jsx';
 
 /**
  * Money received but not yet settled against a bill.
@@ -179,19 +180,6 @@ function BillsDrawer({ row, onClose }) {
     },
   });
 
-  useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.body.classList.add('dialog-open');
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = previous;
-      document.body.classList.remove('dialog-open');
-    };
-  }, [onClose]);
-
   // How far down the list the unapplied money reaches, oldest first.
   let remaining = Number(row.unallocated);
   const covered = (bills ?? []).map((b) => {
@@ -202,11 +190,8 @@ function BillsDrawer({ row, onClose }) {
   const clears = covered.filter((b) => b.covers >= Number(b.balance) - 1).length;
 
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-ink/45" onClick={onClose} aria-hidden />
-      <aside role="dialog" aria-label={row.display_name}
-             className="fixed inset-y-0 right-0 z-50 flex w-[min(720px,95vw)] flex-col border-l border-hair bg-canvas shadow-[0_0_44px_rgba(15,31,46,.28)]"
-             style={{ contain: 'content' }}>
+    <Overlay onClose={onClose} label={row.display_name}>
+      <aside className="overlay-panel overlay-drawer flex w-[min(720px,95vw)] flex-col border-l border-hair bg-canvas shadow-[0_0_44px_rgba(15,31,46,.28)]">
         <header className="border-b border-hair bg-white/85 px-[18px] py-3 backdrop-blur">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
@@ -268,7 +253,7 @@ function BillsDrawer({ row, onClose }) {
           </p>
         </div>
       </aside>
-    </>
+    </Overlay>
   );
 }
 
