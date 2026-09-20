@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
@@ -79,7 +80,7 @@ export default function AppShell({ session }) {
   return (
     <div className="flex min-h-screen">
       <nav className="sticky top-0 flex h-screen w-[168px] flex-none flex-col border-r border-hair bg-white/75 backdrop-blur-xl backdrop-saturate-150">
-        <div className="flex items-center gap-2 border-b border-hair px-3 py-3">
+        <div className="glass-sheen flex items-center gap-2 border-b border-hair px-3 py-3">
           <Mark />
           <div>
             <div className="text-[13px] font-semibold leading-none tracking-[-0.01em]">Neomed</div>
@@ -97,7 +98,7 @@ export default function AppShell({ session }) {
                 [
                   'flex h-[30px] w-full items-center justify-between gap-[6px] px-3 text-left text-[12.5px] transition-colors',
                   isActive
-                    ? 'bg-teal/[0.08] font-semibold text-teal-deep shadow-[inset_2px_0_0_var(--color-teal)]'
+                    ? 'nav-glow bg-teal/[0.08] font-semibold text-teal-deep shadow-[inset_2px_0_0_var(--color-teal)]'
                     : 'text-ink hover:bg-[#f2f6f8] hover:pl-[14px]',
                 ].join(' ')
               }
@@ -122,7 +123,7 @@ export default function AppShell({ session }) {
 
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex flex-wrap items-center gap-[14px] border-b border-hair bg-white/[0.72] px-[18px] py-[9px] backdrop-blur-lg relative">
-          <div className="text-[17px] font-semibold leading-[1.1] tracking-[-0.015em]">{title}</div>
+          <TypedTitle text={title} />
           <div className="max-w-[46ch] text-[11.5px] text-mute text-pretty">{subtitle}</div>
           <div className="ml-auto flex items-center gap-[10px]">
             <SnapshotBadge snapshot={snapshot} />
@@ -130,15 +131,54 @@ export default function AppShell({ session }) {
               Import
             </Link>
           </div>
-          {/* Sweeps once when a screen changes, then stops. A loop would be
-              movement in the corner of the eye all day. */}
-          <div key={location.pathname} className="rail absolute inset-x-0 bottom-0" aria-hidden />
+          <div className="rail absolute inset-x-0 bottom-0" aria-hidden />
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <Outlet />
         </div>
       </main>
+    </div>
+  );
+}
+
+/**
+ * The screen title types itself in when the screen changes.
+ *
+ * Fast enough to be finished before anyone could be waiting on it — the
+ * whole title lands inside a third of a second — and it reserves its own
+ * width up front so the subtitle beside it does not jump around while the
+ * letters arrive.
+ */
+function TypedTitle({ text }) {
+  const [shown, setShown] = useState(text);
+
+  useEffect(() => {
+    const reduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      setShown(text);
+      return undefined;
+    }
+    setShown('');
+    let i = 0;
+    const step = Math.max(14, Math.round(320 / Math.max(text.length, 1)));
+    const id = setInterval(() => {
+      i += 1;
+      setShown(text.slice(0, i));
+      if (i >= text.length) clearInterval(id);
+    }, step);
+    return () => clearInterval(id);
+  }, [text]);
+
+  const done = shown.length >= text.length;
+
+  return (
+    <div className="relative text-[17px] font-semibold leading-[1.1] tracking-[-0.015em]">
+      {/* Holds the full width so nothing beside it shifts mid-type. */}
+      <span aria-hidden className="invisible">{text}</span>
+      <span className={`absolute inset-0 ${done ? '' : 'caret'}`}>{shown}</span>
     </div>
   );
 }

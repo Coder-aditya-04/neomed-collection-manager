@@ -92,45 +92,110 @@
    */
   .panel {
     position: relative;
-    background: rgba(255, 255, 255, 0.78);
-    backdrop-filter: blur(16px) saturate(1.55);
-    -webkit-backdrop-filter: blur(16px) saturate(1.55);
-    border: 1px solid rgba(220, 228, 234, 0.9);
+    background: linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.86),
+      rgba(255, 255, 255, 0.68)
+    );
+    backdrop-filter: blur(20px) saturate(1.7);
+    -webkit-backdrop-filter: blur(20px) saturate(1.7);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    outline: 1px solid rgba(220, 228, 234, 0.55);
+    outline-offset: -1px;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.85),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -1px 0 rgba(15, 31, 46, 0.03),
       0 1px 2px rgba(15, 31, 46, 0.04),
-      0 8px 24px -16px rgba(15, 31, 46, 0.18);
-    transition: box-shadow 220ms var(--ease-dc), border-color 220ms var(--ease-dc);
+      0 12px 32px -20px rgba(15, 31, 46, 0.28);
+    transition: box-shadow 260ms var(--ease-dc), border-color 260ms var(--ease-dc),
+      transform 260ms var(--ease-dc);
   }
 
   .panel-lift:hover {
-    border-color: rgba(0, 133, 122, 0.28);
+    transform: translateY(-2px);
+    border-color: rgba(0, 133, 122, 0.4);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
       0 2px 4px rgba(15, 31, 46, 0.05),
-      0 14px 32px -18px rgba(15, 31, 46, 0.26);
+      0 20px 40px -20px rgba(15, 31, 46, 0.32),
+      0 0 0 1px rgba(0, 133, 122, 0.12);
   }
 
-  /* The sweeping accent line. One loop per screen change, then it stops. */
+  /*
+   * The accent rail: two green beams of different lengths and speeds running
+   * under the header. Two passes rather than one so it reads as movement
+   * rather than a blip on a timer.
+   */
   .rail {
     position: relative;
     height: 2px;
     overflow: hidden;
-    background: transparent;
+    background: linear-gradient(90deg, transparent, rgba(0, 133, 122, .10), transparent);
   }
+  .rail::before,
   .rail::after {
     content: "";
     position: absolute;
-    inset: 0;
+    inset-block: 0;
+    width: 45%;
+    border-radius: 2px;
+  }
+  .rail::before {
+    background: linear-gradient(90deg, transparent, var(--color-teal), var(--color-age-0), transparent);
+    box-shadow: 0 0 12px rgba(0, 133, 122, .75);
+    animation: railRun 2.4s linear infinite;
+  }
+  .rail::after {
+    width: 22%;
+    background: linear-gradient(90deg, transparent, var(--color-age-0), transparent);
+    opacity: .6;
+    animation: railRunSlow 3.8s linear infinite;
+    animation-delay: -1.2s;
+  }
+
+  /* Glass that catches the light as it passes. */
+  .glass-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .glass-sheen::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 28%;
     background: linear-gradient(
       90deg,
       transparent,
-      var(--color-teal) 35%,
-      var(--color-age-0) 50%,
-      var(--color-teal) 65%,
+      rgba(255, 255, 255, .55),
       transparent
     );
-    animation: railSweep 900ms var(--ease-dc) 1 both;
+    animation: sheen 7s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* The typing caret. */
+  .caret::after {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    margin-left: 3px;
+    vertical-align: -0.12em;
+    background: var(--color-teal);
+    animation: caretBlink 1.05s steps(1) infinite;
+  }
+
+  .nav-glow {
+    position: relative;
+  }
+  .nav-glow::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(0, 133, 122, .16), transparent 70%);
+    animation: pulseGlow 2.8s ease-in-out infinite;
+    pointer-events: none;
   }
 
   .kicker {
@@ -179,25 +244,38 @@
 }
 
 /*
- * Motion is kept short and few. This is a screen people do data entry on for
- * an hour at a time: anything that moves while they are reading a figure or
- * typing a credit term is a cost, not a flourish. Nothing here runs longer
- * than 320ms, nothing loops except the one progress line, and every bit of it
- * is switched off by prefers-reduced-motion.
+ * Motion. prefers-reduced-motion still turns all of it off — that is an
+ * accessibility setting the user's own OS controls, not a style choice.
  */
 
-/* The green line that sweeps under the header when a screen loads. */
-@keyframes railSweep {
-  0%   { transform: translateX(-100%) scaleX(0.35); opacity: 0; }
-  12%  { opacity: 1; }
-  88%  { opacity: 1; }
-  100% { transform: translateX(100%) scaleX(0.35); opacity: 0; }
+/* The green line running under the header, continuously. */
+@keyframes railRun {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
-/* A slow shine across glass panels, barely there. */
+/* A second, slower pass so the rail never reads as a single repeating blip. */
+@keyframes railRunSlow {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* The caret that sits at the end of a title while it types. */
+@keyframes caretBlink {
+  0%, 45%   { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}
+
+/* A slow shine travelling across glass. */
 @keyframes sheen {
-  0%   { background-position: -60% 0; }
-  100% { background-position: 160% 0; }
+  0%   { transform: translateX(-120%) skewX(-18deg); }
+  100% { transform: translateX(320%) skewX(-18deg); }
+}
+
+/* The soft green glow behind the active nav item. */
+@keyframes pulseGlow {
+  0%, 100% { opacity: .55; }
+  50%      { opacity: 1; }
 }
 
 @keyframes screenIn {

@@ -65,7 +65,7 @@ export default function DashboardScreen() {
   return (
     <div className="animate-screen-in px-[18px] pb-[34px] pt-4">
       {/* headline figures */}
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-px border border-hair bg-hair">
+      <div className="stagger mb-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-px border border-hair bg-hair">
         <Figure
           label="Net outstanding"
           value={formatInr(snapshot.net_total)}
@@ -91,7 +91,7 @@ export default function DashboardScreen() {
       </div>
 
       {/* portfolio ageing */}
-      <section className="panel mb-4 px-4 pb-3 pt-[14px]">
+      <section className="panel panel-lift mb-4 px-4 pb-3 pt-[14px]">
         <div className="mb-[10px] flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Portfolio ageing</h2>
           <span className="font-mono text-[9.5px] uppercase tracking-[0.05em] text-faint">
@@ -239,7 +239,7 @@ export default function DashboardScreen() {
 
 function Figure({ label, value, note, color }) {
   return (
-    <div className="bg-white/[0.74] px-[14px] pb-[13px] pt-3 backdrop-blur">
+    <div className="glass-sheen bg-white/[0.82] px-[14px] pb-[13px] pt-3 backdrop-blur-xl backdrop-saturate-150 transition-colors duration-200 hover:bg-white/95">
       <div className="kicker">{label}</div>
       <div
         className="tnum mt-1 whitespace-nowrap text-[26px] font-medium leading-[1.1] tracking-[-0.03em]"

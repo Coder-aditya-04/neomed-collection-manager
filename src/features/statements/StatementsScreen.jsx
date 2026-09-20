@@ -45,7 +45,7 @@ export default function StatementsScreen() {
 
   return (
     <div className="animate-screen-in flex h-full min-h-0 flex-col px-[18px] pb-4 pt-4">
-      <section className="panel mb-3 px-4 py-3">
+      <section className="panel panel-lift mb-3 px-4 py-3">
         <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Send statements on WhatsApp</h2>
         <p className="mt-1 max-w-[100ch] text-[12px] text-mute text-pretty">
           Pick the parties, check the message, and send. Every figure comes from the{' '}
@@ -84,7 +84,7 @@ export default function StatementsScreen() {
       </div>
 
       {selected.size > 0 ? (
-        <section className="panel mb-3 px-4 py-3">
+        <section className="panel panel-lift mb-3 px-4 py-3">
           <div className="flex flex-wrap items-baseline gap-4">
             <span className="text-[13px] font-semibold">
               {formatCount(plan.sendable.length)} ready to send · {formatInr(plan.sendableValue)}

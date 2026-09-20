@@ -110,7 +110,7 @@ export default function RecoveryScreen() {
         </span>
       </div>
 
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-px border border-hair bg-hair">
+      <div className="stagger mb-4 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-px border border-hair bg-hair">
         <Fig label="Contacts made" value={formatCount(totals.contacts)}
              note={`${formatCount(totals.calls)} calls · ${formatCount(totals.whatsapps)} WhatsApp`} />
         <Fig label="Commitments due" value={formatCount(totals.due)}
@@ -139,7 +139,7 @@ export default function RecoveryScreen() {
         </section>
       ) : null}
 
-      <section className="panel mb-4">
+      <section className="panel panel-lift mb-4">
         <div className="border-b border-hair px-4 py-[9px]">
           <h2 className="text-[14px] font-semibold tracking-[-0.01em]">By person</h2>
         </div>
@@ -228,7 +228,7 @@ function effColor(pct) {
 
 function Fig({ label, value, note }) {
   return (
-    <div className="bg-white/[0.74] px-[14px] pb-[13px] pt-3">
+    <div className="glass-sheen bg-white/[0.82] px-[14px] pb-[13px] pt-3 backdrop-blur-xl transition-colors duration-200 hover:bg-white/95">
       <div className="kicker">{label}</div>
       <div className="tnum mt-1 text-[24px] font-medium leading-[1.1] tracking-[-0.03em]">{value}</div>
       {note ? <div className="mt-[3px] text-[11px] text-mute text-pretty">{note}</div> : null}

@@ -108,7 +108,7 @@ export default function CreditMasterScreen() {
   return (
     <div className="animate-screen-in flex h-full min-h-0 flex-col px-[18px] pb-4 pt-4">
       {/* progress — makes the work feel finite */}
-      <section className="panel mb-3 px-4 py-3">
+      <section className="panel panel-lift mb-3 px-4 py-3">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-[15px] font-semibold tracking-[-0.01em]">
             {progress.done} of the top {progress.top100Count} have approved terms
@@ -148,7 +148,7 @@ export default function CreditMasterScreen() {
       </div>
 
       {/* bulk apply */}
-      <section className="panel mb-3 px-4 py-3">
+      <section className="panel panel-lift mb-3 px-4 py-3">
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <div className="kicker mb-1">Apply to {selected.size} selected</div>
