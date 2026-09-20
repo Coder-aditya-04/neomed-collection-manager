@@ -120,6 +120,10 @@ export default function SettingsScreen() {
         </p>
       </Section>
 
+      <Section title="Recovery targets">
+        <Targets users={users} />
+      </Section>
+
       <Section title="Thresholds">
         <div className="flex flex-wrap items-end gap-3 px-[10px] py-2">
           <label className="block">
@@ -216,6 +220,88 @@ export default function SettingsScreen() {
         )}
       </Section>
     </div>
+  );
+}
+
+/**
+ * Targets are set per person per period. They are what "how many calls should
+ * have been made" is measured against — without one the recovery desk shows a
+ * dash rather than inventing a denominator.
+ */
+function Targets({ users }) {
+  const qc = useQueryClient();
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+    .toISOString().slice(0, 10);
+
+  const { data: targets } = useQuery({
+    queryKey: ['recovery-targets', monthStart],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('recovery_targets')
+        .select('*')
+        .eq('starts_on', monthStart);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const save = useMutation({
+    mutationFn: async ({ userId, period, calls, amount }) => {
+      const { error } = await supabase.from('recovery_targets').upsert(
+        { user_id: userId, period, starts_on: monthStart, call_target: calls, amount_target: amount },
+        { onConflict: 'user_id,period,starts_on' }
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries(),
+  });
+
+  return (
+    <>
+      <p className="px-[10px] pb-2 pt-1 text-[11.5px] text-mute text-pretty">
+        For the period beginning {formatDate(monthStart)}. Leave a target at zero and the recovery
+        desk simply reports what was done, without scoring it against a number.
+      </p>
+      <table className="w-full border-collapse text-[12px]">
+        <thead><tr><Th>Person</Th><Th>Period</Th><Th align="right">Calls</Th><Th align="right">Amount</Th><Th /></tr></thead>
+        <tbody>
+          {(users ?? []).map((u) => (
+            <TargetRow key={u.id} user={u}
+                       existing={(targets ?? []).find((t) => t.user_id === u.id && t.period === 'monthly')}
+                       onSave={(calls, amount) => save.mutate({ userId: u.id, period: 'monthly', calls, amount })} />
+          ))}
+          {!users?.length ? <tr><td colSpan={5} className="px-[10px] py-3 text-faint">No users yet.</td></tr> : null}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+function TargetRow({ user, existing, onSave }) {
+  const [calls, setCalls] = useState(existing?.call_target ?? 0);
+  const [amount, setAmount] = useState(existing?.amount_target ?? 0);
+  const dirty = Number(calls) !== Number(existing?.call_target ?? 0)
+    || Number(amount) !== Number(existing?.amount_target ?? 0);
+
+  return (
+    <tr className="border-b border-rule last:border-b-0">
+      <td className="px-[10px] py-[6px] font-medium">{user.full_name}</td>
+      <td className="px-[10px] py-[6px] text-mute">monthly</td>
+      <td className="px-[10px] py-[6px] text-right">
+        <input type="number" value={calls} onChange={(e) => setCalls(e.target.value)}
+               className="tnum w-[80px] rounded-[2px] border border-hair px-[6px] py-[3px] text-right text-[12px]" />
+      </td>
+      <td className="px-[10px] py-[6px] text-right">
+        <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
+               className="tnum w-[120px] rounded-[2px] border border-hair px-[6px] py-[3px] text-right text-[12px]" />
+      </td>
+      <td className="px-[10px] py-[6px]">
+        <button type="button" className="btn btn-primary px-[10px] py-[3px] text-[11.5px]"
+                disabled={!dirty} onClick={() => onSave(Number(calls) || 0, Number(amount) || 0)}>
+          Save
+        </button>
+      </td>
+    </tr>
   );
 }
 

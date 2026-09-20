@@ -78,6 +78,10 @@ export default function PartyDrawer({ party, onClose }) {
             <Contact party={party} onSaved={() => queryClient.invalidateQueries()} />
           </Section>
 
+          <Section title="Assigned to">
+            <Assignment party={party} onSaved={() => queryClient.invalidateQueries()} />
+          </Section>
+
           <Section title="Ageing">
             {buckets ? (
               <>
@@ -335,6 +339,53 @@ function StopRule({ party }) {
       <p className="mt-2 text-[11px] text-faint text-pretty">
         Set the term in the credit master and this party becomes judgeable.
       </p>
+    </div>
+  );
+}
+
+/**
+ * Who owns chasing this party. Allocation is per party rather than per task,
+ * because a party is what a person actually carries — the calls, the promises
+ * and the claims all follow from it.
+ */
+function Assignment({ party, onSaved }) {
+  const { data: team } = useQuery({
+    queryKey: ['app-users'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('app_users').select('id, full_name, role').order('full_name');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function assign(userId) {
+    setSaving(true);
+    await supabase.from('parties').update({ responsible_person: userId || null }).eq('id', party.party_id);
+    setSaving(false);
+    onSaved?.();
+  }
+
+  const current = team?.find((u) => u.id === party.responsible_person);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border border-hair bg-white p-3">
+      <select
+        value={party.responsible_person ?? ''}
+        onChange={(e) => assign(e.target.value)}
+        disabled={saving}
+        className="rounded-[2px] border border-hair bg-white px-[8px] py-[4px] text-[12px]"
+      >
+        <option value="">Nobody assigned</option>
+        {(team ?? []).map((u) => (
+          <option key={u.id} value={u.id}>{u.full_name} · {u.role}</option>
+        ))}
+      </select>
+      <span className="text-[11px] text-faint text-pretty">
+        {current
+          ? `${current.full_name} is responsible for chasing this party.`
+          : 'Unassigned parties still appear on the call list, but nobody owns them.'}
+      </span>
     </div>
   );
 }
