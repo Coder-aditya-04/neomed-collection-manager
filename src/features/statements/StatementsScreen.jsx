@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
 import { latestSnapshotQuery, partiesAgeingQuery } from '../../lib/queries.js';
@@ -254,6 +254,20 @@ async function loadBills(partyId, snapshotId) {
 function PreviewDialog({ preview, onClose, onShared }) {
   const docRef = useRef(null);
   const [busy, setBusy] = useState(null);
+  // A statement is 780px wide and can run to several pages. Fitting it to the
+  // dialog is what makes it reviewable at a glance instead of by scrolling.
+  const [fit, setFit] = useState(true);
+
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [onClose]);
 
   /**
    * Hand the image to the phone's own share sheet, which lists WhatsApp.
@@ -346,13 +360,25 @@ function PreviewDialog({ preview, onClose, onShared }) {
                   onClick={() => navigator.clipboard?.writeText(preview.text)}>
             Copy text
           </button>
+          <button type="button" className="btn btn-secondary px-3 py-[5px] text-[12px]"
+                  onClick={() => setFit((f) => !f)}>
+            {fit ? 'Actual size' : 'Fit to window'}
+          </button>
           <button type="button" className="btn btn-secondary px-3 py-[5px] text-[12px]" onClick={onClose}>
             Close
           </button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto bg-[#DDE4EA] p-5">
-          <div className="mx-auto w-[780px] shadow-[0_2px_14px_rgba(15,31,46,.18)]">
+          <div
+            className="mx-auto shadow-[0_2px_14px_rgba(15,31,46,.18)] transition-transform duration-200"
+            style={
+              fit
+                ? { width: 780, transform: 'scale(0.86)', transformOrigin: 'top center',
+                    marginBottom: -0.14 * 1400 }
+                : { width: 780 }
+            }
+          >
             <StatementDocument
               ref={docRef}
               party={preview.party}

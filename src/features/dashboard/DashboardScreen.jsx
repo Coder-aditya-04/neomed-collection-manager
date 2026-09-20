@@ -127,7 +127,7 @@ export default function DashboardScreen() {
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] items-start gap-4">
         {/* priority list */}
-        <section className="panel col-span-full min-w-0 xl:col-span-2">
+        <section className="panel panel-lift col-span-full min-w-0 xl:col-span-2">
           <div className="flex flex-wrap items-baseline gap-[10px] border-b border-hair px-4 pb-[9px] pt-3">
             <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Work this first</h2>
             <span className="text-[11px] text-faint">

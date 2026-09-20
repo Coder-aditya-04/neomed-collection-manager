@@ -78,7 +78,7 @@ export default function AppShell({ session }) {
 
   return (
     <div className="flex min-h-screen">
-      <nav className="sticky top-0 flex h-screen w-[168px] flex-none flex-col border-r border-hair bg-white/70 backdrop-blur-lg">
+      <nav className="sticky top-0 flex h-screen w-[168px] flex-none flex-col border-r border-hair bg-white/75 backdrop-blur-xl backdrop-saturate-150">
         <div className="flex items-center gap-2 border-b border-hair px-3 py-3">
           <Mark />
           <div>
@@ -97,8 +97,8 @@ export default function AppShell({ session }) {
                 [
                   'flex h-[30px] w-full items-center justify-between gap-[6px] px-3 text-left text-[12.5px] transition-colors',
                   isActive
-                    ? 'bg-teal/[0.07] font-semibold text-teal-deep shadow-[inset_2px_0_0_var(--color-teal)]'
-                    : 'text-ink hover:bg-[#f2f6f8]',
+                    ? 'bg-teal/[0.08] font-semibold text-teal-deep shadow-[inset_2px_0_0_var(--color-teal)]'
+                    : 'text-ink hover:bg-[#f2f6f8] hover:pl-[14px]',
                 ].join(' ')
               }
             >
@@ -121,7 +121,7 @@ export default function AppShell({ session }) {
       </nav>
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex flex-wrap items-center gap-[14px] border-b border-hair bg-white/[0.72] px-[18px] py-[9px] backdrop-blur-lg">
+        <header className="sticky top-0 z-30 flex flex-wrap items-center gap-[14px] border-b border-hair bg-white/[0.72] px-[18px] py-[9px] backdrop-blur-lg relative">
           <div className="text-[17px] font-semibold leading-[1.1] tracking-[-0.015em]">{title}</div>
           <div className="max-w-[46ch] text-[11.5px] text-mute text-pretty">{subtitle}</div>
           <div className="ml-auto flex items-center gap-[10px]">
@@ -130,6 +130,9 @@ export default function AppShell({ session }) {
               Import
             </Link>
           </div>
+          {/* Sweeps once when a screen changes, then stops. A loop would be
+              movement in the corner of the eye all day. */}
+          <div key={location.pathname} className="rail absolute inset-x-0 bottom-0" aria-hidden />
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
