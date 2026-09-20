@@ -41,24 +41,44 @@
     font-size: 13px;
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
-    /* The drawing-board grid the prototype sits on. */
-    background:
-      repeating-linear-gradient(to right, rgba(15, 31, 46, 0.05) 0 1px, transparent 1px 34px),
-      repeating-linear-gradient(to bottom, rgba(15, 31, 46, 0.05) 0 1px, transparent 1px 34px),
-      var(--color-canvas);
-    background-attachment: fixed;
+    background: var(--color-canvas);
   }
 
   /*
-   * The tracing layer. Fixed behind everything, never interactive, and its
-   * own stacking context so the paths repaint without touching the interface.
+   * The drawing-board grid, lifted off the body so the coloured light can sit
+   * beneath it. Static — the grid is the ruled paper, not the thing that moves.
    */
-  .grid-trace {
+  body::after {
+    content: "";
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    opacity: 0.5;
+    background:
+      repeating-linear-gradient(to right, rgba(15, 31, 46, 0.055) 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(to bottom, rgba(15, 31, 46, 0.055) 0 1px, transparent 1px 34px);
+  }
+
+  /*
+   * The coloured light, below the grid and below everything else. Blurred
+   * past the point of having an edge, so it never becomes a shape.
+   */
+  .ambient {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .ambient-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(66px);
+    will-change: transform;
+    animation-name: drift;
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
   }
 
   /* Rule 7: figures line up in columns, always. */
@@ -120,12 +140,12 @@
      */
     background: linear-gradient(
       152deg,
-      rgba(255, 255, 255, 0.58) 0%,
-      rgba(255, 255, 255, 0.44) 48%,
-      rgba(255, 255, 255, 0.52) 100%
+      rgba(255, 255, 255, 0.62) 0%,
+      rgba(255, 255, 255, 0.46) 48%,
+      rgba(255, 255, 255, 0.56) 100%
     );
-    backdrop-filter: blur(12px) saturate(1.8) brightness(1.04);
-    -webkit-backdrop-filter: blur(12px) saturate(1.8) brightness(1.04);
+    backdrop-filter: blur(14px) saturate(1.9) brightness(1.06);
+    -webkit-backdrop-filter: blur(14px) saturate(1.9) brightness(1.06);
     border: 1px solid rgba(255, 255, 255, 0.55);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.9),
@@ -277,10 +297,13 @@
  * accessibility setting the user's own OS controls, not a style choice.
  */
 
-/* A lit segment running the length of a grid route, then round again. */
-@keyframes traceRun {
-  from { stroke-dashoffset: var(--from, 4000px); }
-  to   { stroke-dashoffset: 0; }
+/*
+ * The drift. Deliberately small — a pool that crosses the screen would be
+ * movement you notice; one that breathes a few percent is light changing.
+ */
+@keyframes drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(6%, -4%, 0) scale(1.14); }
 }
 
 /* The green line running under the header, continuously. */
@@ -355,7 +378,7 @@
  * to four hundred rows, and repainting drifting lines and a sweeping rail
  * behind it on every scroll frame is what made the screen seize.
  */
-body.dialog-open .grid-trace path,
+body.dialog-open .ambient-orb,
 body.dialog-open .rail::before,
 body.dialog-open .rail::after,
 body.dialog-open .glass-sheen::after,

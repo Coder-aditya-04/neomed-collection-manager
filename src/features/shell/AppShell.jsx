@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
 import { partiesAgeingQuery, priorityListQuery } from '../../lib/queries.js';
 import { formatCount, formatDate } from '../../lib/format.js';
-import GridTrace from '../../components/GridTrace.jsx';
+import AmbientBackground from '../../components/AmbientBackground.jsx';
 
 /** Every route in the spec. All of them are built. */
 const NAV = [
@@ -80,7 +80,7 @@ export default function AppShell({ session }) {
 
   return (
     <div className="flex min-h-screen">
-      <GridTrace />
+      <AmbientBackground />
       <nav className="sticky top-0 flex h-screen w-[168px] flex-none flex-col border-r border-hair bg-white/75 backdrop-blur-xl backdrop-saturate-150">
         <div className="glass-sheen flex items-center gap-2 border-b border-hair px-3 py-3">
           <Mark />
