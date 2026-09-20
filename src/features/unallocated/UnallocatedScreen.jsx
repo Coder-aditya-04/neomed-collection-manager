@@ -38,12 +38,11 @@ export default function UnallocatedScreen() {
 
   const rows = useMemo(() => {
     const q = query.toUpperCase().trim();
-    let out = (data ?? []).filter((r) => r.gap_type === 'receipt_unallocated');
+    let out = data ?? [];
     if (q) out = out.filter((r) => r.display_name.toUpperCase().includes(q));
     return out;
   }, [data, query]);
 
-  const reverse = (data ?? []).filter((r) => r.gap_type === 'bills_short');
   const total = rows.reduce((a, r) => a + Number(r.unallocated), 0);
 
   if (error) return <Msg tone="error">{error.message}</Msg>;
@@ -61,10 +60,9 @@ export default function UnallocatedScreen() {
           </span>
         </div>
         <p className="mt-2 max-w-[100ch] text-[12px] text-pretty">
-          These parties have paid money that Marg has credited to their ledger but that was never
-          settled against particular bills — usually a part payment made a day or two after the
-          first. Their balance is already reduced, but the bills keep ageing as though nothing
-          arrived.
+          Marg holds these receipts against the party's name without them being applied to any
+          particular bill — usually a part payment made a day or two after the first. The party's
+          balance is already reduced, but the invoices keep ageing as though nothing arrived.
         </p>
         <p className="mt-1 max-w-[100ch] text-[11.5px] text-mute text-pretty">
           <strong>What to do:</strong> ring the party, agree which bills the money clears, and enter
@@ -90,9 +88,9 @@ export default function UnallocatedScreen() {
           <thead>
             <tr>
               <Th>Party</Th>
-              <Th align="right" width="110px">To allocate</Th>
+              <Th align="right" width="115px">Received, unapplied</Th>
+              <Th align="right" width="70px">Receipts</Th>
               <Th align="right" width="110px">Marg balance</Th>
-              <Th align="right" width="110px">Bills total</Th>
               <Th align="right" width="80px">Bills</Th>
               <Th align="right" width="80px">Oldest</Th>
               <Th width="170px">Contact</Th>
@@ -112,8 +110,8 @@ export default function UnallocatedScreen() {
                 <td className="tnum px-[10px] py-[6px] text-right font-semibold text-age-2">
                   {formatInr(r.unallocated)}
                 </td>
+                <td className="tnum px-[10px] py-[6px] text-right text-mute">{formatCount(r.receipt_count)}</td>
                 <td className="tnum px-[10px] py-[6px] text-right">{formatInr(r.marg_balance)}</td>
-                <td className="tnum px-[10px] py-[6px] text-right text-mute">{formatInr(r.bills_total)}</td>
                 <td className="tnum px-[10px] py-[6px] text-right text-mute">{formatCount(r.bill_count)}</td>
                 <td className="tnum px-[10px] py-[6px] text-right text-mute">{formatAge(r.oldest_bill_age_days)}</td>
                 <td className="px-[10px] py-[6px]" onClick={(e) => e.stopPropagation()}>
@@ -130,24 +128,6 @@ export default function UnallocatedScreen() {
         </table>
       </div>
 
-      {reverse.length > 0 ? (
-        <section className="panel mt-3 border-l-[3px] border-l-[#C9A93E] px-4 py-3">
-          <div className="kicker text-[#7A6410]">The other direction — {formatCount(reverse.length)} parties</div>
-          <p className="mt-1 max-w-[100ch] text-[12px] text-pretty">
-            Here the bills add up to <em>less</em> than the Marg balance, which is the opposite
-            problem: the ledger carries more than the open bills account for. Worth a look from
-            accounts rather than a call to the party.
-          </p>
-          <ul className="mt-2 grid gap-[3px]">
-            {reverse.slice(0, 8).map((r) => (
-              <li key={r.party_id} className="flex items-baseline justify-between gap-3 text-[12px]">
-                <span className="truncate">{r.display_name}</span>
-                <span className="tnum flex-none font-medium">{formatInr(Math.abs(r.unallocated))}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
       {open ? <BillsDrawer row={open} onClose={() => setOpen(null)} /> : null}
     </div>
   );
@@ -169,7 +149,7 @@ function BillsDrawer({ row, onClose }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bills')
-        .select('bill_no, bill_date, bill_amount, received, balance, bill_age_days')
+        .select('bill_no, bill_date, bill_amount, received, balance, bill_age_days, is_on_account')
         .eq('party_id', row.party_id)
         .eq('snapshot_id', snapshot.id)
         .neq('balance', 0)
@@ -180,14 +160,25 @@ function BillsDrawer({ row, onClose }) {
     },
   });
 
-  // How far down the list the unapplied money reaches, oldest first.
+  /*
+   * Two kinds of row, and the difference is the whole point of the screen:
+   * the receipts that arrived and were never applied, and the invoices they
+   * could be applied to. The sheet the client works from colours them apart,
+   * so this does too.
+   */
+  const all = bills ?? [];
+  const receipts = all.filter((b) => b.is_on_account && Number(b.balance) < 0);
+  const invoices = all.filter((b) => !(b.is_on_account && Number(b.balance) < 0));
+
+  // How far the unapplied money reaches against the oldest invoices.
   let remaining = Number(row.unallocated);
-  const covered = (bills ?? []).map((b) => {
-    const take = Math.max(0, Math.min(remaining, Number(b.balance)));
+  const covered = invoices.map((b) => {
+    const bal = Number(b.balance);
+    const take = bal > 0 ? Math.max(0, Math.min(remaining, bal)) : 0;
     remaining -= take;
     return { ...b, covers: take };
   });
-  const clears = covered.filter((b) => b.covers >= Number(b.balance) - 1).length;
+  const clears = covered.filter((b) => b.covers > 0 && b.covers >= Number(b.balance) - 1).length;
 
   return (
     <Overlay onClose={onClose} label={row.display_name}>
@@ -206,9 +197,9 @@ function BillsDrawer({ row, onClose }) {
           </div>
 
           <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-px bg-hair">
-            <Fig label="To allocate" value={formatInr(row.unallocated)} tone="var(--color-age-2)" />
+            <Fig label="Received, unapplied" value={formatInr(row.unallocated)} tone="var(--color-age-2)" />
+            <Fig label="Receipts" value={formatCount(row.receipt_count)} />
             <Fig label="Marg balance" value={formatInr(row.marg_balance)} />
-            <Fig label="Bills total" value={formatInr(row.bills_total)} />
             <Fig label="Would clear" value={`${formatCount(clears)} bills`} tone="var(--color-teal-deep)" />
           </div>
         </header>
@@ -217,6 +208,37 @@ function BillsDrawer({ row, onClose }) {
           {isLoading ? (
             <p className="text-[12px] text-mute">Loading bills…</p>
           ) : (
+          <>
+            {/* The money itself, listed first — it is what the call is about. */}
+            <div className="mb-3 border border-age-2/40 bg-age-2/[0.07]">
+              <div className="border-b border-age-2/30 px-3 py-[7px] text-[10px] font-semibold uppercase tracking-[0.09em] text-age-2">
+                Received, not applied to any bill · {formatCount(receipts.length)}
+              </div>
+              <table className="w-full border-collapse text-[11.5px]">
+                <tbody>
+                  {receipts.map((b, i) => (
+                    <tr key={`r-${i}`} className="border-t border-age-2/20 first:border-t-0">
+                      <td className="px-[9px] py-[5px] font-mono">{displayBillNo(b.bill_no)}</td>
+                      <td className="px-[9px] py-[5px] font-mono text-mute">{formatDate(b.bill_date)}</td>
+                      <td className="tnum px-[9px] py-[5px] text-right text-mute">
+                        {b.bill_age_days != null ? `${b.bill_age_days}d ago` : ''}
+                      </td>
+                      <td className="tnum px-[9px] py-[5px] text-right font-semibold text-age-2">
+                        {plain(-Number(b.balance))}
+                      </td>
+                    </tr>
+                  ))}
+                  {receipts.length === 0 ? (
+                    <tr><td className="px-[9px] py-[6px] text-[11.5px] text-faint">
+                      No unapplied receipts on this snapshot.
+                    </td></tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.09em] text-mute">
+              Open bills it could be set against
+            </div>
             <div className="border border-hair bg-surface">
               <table className="w-full border-collapse text-[11.5px]">
                 <thead>
@@ -230,7 +252,7 @@ function BillsDrawer({ row, onClose }) {
                 <tbody>
                   {covered.map((b, i) => (
                     <tr key={`${b.bill_no}-${i}`}
-                        className={`border-t border-rule ${b.covers > 0 ? 'bg-teal/10' : ''}`}>
+                        className={`border-t border-rule ${b.covers > 0 ? 'bg-teal/10' : ''} ${Number(b.balance) < 0 ? 'text-claim' : ''}`}>
                       <td className="px-[9px] py-[5px] font-mono">{displayBillNo(b.bill_no)}</td>
                       <td className="px-[9px] py-[5px] font-mono text-mute">{formatDate(b.bill_date)}</td>
                       <td className="tnum px-[9px] py-[5px] text-right">{plain(b.bill_amount)}</td>
@@ -245,6 +267,7 @@ function BillsDrawer({ row, onClose }) {
                 </tbody>
               </table>
             </div>
+          </>
           )}
           <p className="mt-2 text-[11px] text-faint text-pretty">
             The green rows are how far the unapplied money reaches if it is set against the oldest

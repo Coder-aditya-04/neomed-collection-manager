@@ -292,13 +292,30 @@ export function inferReportDate(fileName, billDates = []) {
 /* row classification                                                  */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Party header row, bill row, or nothing.
+ *
+ * A bill row is NOT identified by having a bill number. Marg writes receipts
+ * and adjustments with the number column empty — in the reference file 161
+ * such rows carry -Rs 153 L between them, and treating them as blank dropped
+ * every one. Worse, it dropped them silently and then reported the hole it
+ * had made as a discrepancy between Marg's totals and its own bills.
+ *
+ * So a row counts as a bill when it has no party name but carries anything
+ * that makes it a transaction: a number, a date, or money.
+ */
 export function classifyRow(row) {
   if (!row || row.length === 0) return 'blank';
-  const hasName = !isBlank(row[COLUMNS.PARTY_NAME]);
+  if (!isBlank(row[COLUMNS.PARTY_NAME])) return 'party';  // column 0 marks a party
+
   const hasBillNo = !isBlank(row[COLUMNS.BILL_NO]);
-  if (hasName) return 'party';       // column 0 is filled only on party rows
-  if (hasBillNo) return 'bill';
-  return 'blank';
+  const hasDate = !isBlank(row[COLUMNS.BILL_DATE]);
+  const hasMoney =
+    toNumber(row[COLUMNS.BALANCE]) !== 0 ||
+    toNumber(row[COLUMNS.BILL_AMT]) !== 0 ||
+    toNumber(row[COLUMNS.RECEIVED]) !== 0;
+
+  return hasBillNo || hasDate || hasMoney ? 'bill' : 'blank';
 }
 
 /* ------------------------------------------------------------------ */

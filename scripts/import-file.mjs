@@ -135,6 +135,7 @@ for (let i = 0; i < parsed.bills.length; i += BATCH) {
     received: b.received,
     balance: b.balance,
     bill_age_days: b.bill_age_days,
+    is_on_account: b.is_on_account,
     marg_due_date: b.marg_due_date,
     days_past_due: b.days_past_due,
   }));

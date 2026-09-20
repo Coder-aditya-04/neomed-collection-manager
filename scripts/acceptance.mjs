@@ -37,15 +37,23 @@ const rows = [
   ['  owing', t.owingCount, 709],
   ['  in credit', t.creditCount, 97],
   ['  at zero', t.zeroCount, 13],
-  ['Bill rows', t.billCount, 8197],
+  ['Bill rows', t.billCount, 8359],
   ['Owed', fmt(t.totalOwed), '₹8.06 Cr'],
   ['Credit', fmt(t.totalCredit), '−₹12.61 L'],
   ['Net', fmt(t.netTotal), '₹7.93 Cr'],
 ];
 
-// Reported separately: the spec states two figures that the real file cannot
-// satisfy at once — "log every party where the gap exceeds Rs 1,000" and
-// "15 reconciliation warnings raised". 46 parties exceed Rs 1,000 here.
+/*
+ * The spec expects 15 reconciliation warnings. There are none, and that is
+ * the correct answer: Marg's header total and the sum of its own bill rows
+ * agree to the paisa for all 819 parties.
+ *
+ * The gap the spec anticipated — and the 46 parties this script used to
+ * report — came from a parser that dropped rows Marg writes with an empty
+ * bill-number column (161 of them here, carrying −₹153 L of receipts). The
+ * expected bill count above rose from 8,197 to 8,359 for the same reason, so
+ * the spec's own figures were measured against that same hole.
+ */
 const gapsDesc = parsed.parties
   .map((x) => Math.abs(x.current_outstanding - x.bill_balance_sum))
   .filter((g) => g > 0.005)
