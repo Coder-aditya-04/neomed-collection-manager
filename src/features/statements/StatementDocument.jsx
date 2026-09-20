@@ -32,6 +32,20 @@ export function plain(n) {
   return `${sign}${rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',')},${last3}`;
 }
 
+/**
+ * How a bill number should read to the party.
+ *
+ * On-account rows with no number of their own are keyed internally as
+ * "*~2026-02-23~-12" so they survive the unique index. That key is ours, not
+ * theirs, and must never appear on a statement — it looks like a typo and
+ * invites a phone call about the wrong thing.
+ */
+export function displayBillNo(billNo) {
+  const s = String(billNo ?? '').trim();
+  if (s.startsWith('*~') || s === '*' || s === '#') return 'On account';
+  return s;
+}
+
 /** DD-MMM-YY, as Marg writes dates. */
 function margDate(iso) {
   if (!iso) return '';
@@ -41,7 +55,7 @@ function margDate(iso) {
 }
 
 const StatementDocument = forwardRef(function StatementDocument(
-  { party, bills, asOf, showAgeing = true },
+  { party, bills, asOf, showAgeing = true, truncated = 0 },
   ref
 ) {
   const open = (bills ?? [])
@@ -53,6 +67,28 @@ const StatementDocument = forwardRef(function StatementDocument(
     running += Number(b.balance);
     return { ...b, cumulative: running };
   });
+
+  /*
+   * Three different numbers have to be kept apart here, and conflating any
+   * two of them puts a wrong figure in front of a customer:
+   *
+   *   listed      what the rows above add up to
+   *   notListed   bills that exist but were left off to keep this readable
+   *   unallocated money received and credited to the party, never applied to
+   *               any particular bill — the thing we actually want them to
+   *               resolve on the call
+   *
+   * bill_balance_sum is every bill the party has, listed or not, so the
+   * unallocated amount is the gap between that and the ledger balance. An
+   * earlier version folded truncation into that gap and told the party we
+   * were "carrying a balance in our ledger", which was simply untrue.
+   */
+  const listed = rows.reduce((a, b) => a + Number(b.balance), 0);
+  const allBills = party.bill_balance_sum != null ? Number(party.bill_balance_sum) : listed;
+  const notListed = allBills - listed;
+  const unallocated = Number(party.current_outstanding) - allBills;
+  const hasNotListed = Math.abs(notListed) > 1;
+  const hasUnallocated = Math.abs(unallocated) > 1;
 
   // Age bands are from the bill date, and labelled as age — not as lateness.
   const bands = [0, 0, 0, 0];
@@ -129,7 +165,7 @@ const StatementDocument = forwardRef(function StatementDocument(
           <tbody>
             {rows.map((b, i) => (
               <tr key={`${b.bill_no}-${i}`} style={{ borderTop: '1px solid #EFF2F5' }}>
-                <Td mono>{b.bill_no}</Td>
+                <Td mono>{displayBillNo(b.bill_no)}</Td>
                 <Td mono>{margDate(b.bill_date)}</Td>
                 <Td mono right>{plain(b.bill_amount ?? b.balance)}</Td>
                 <Td mono right>{plain(b.received ?? 0)}</Td>
@@ -141,10 +177,43 @@ const StatementDocument = forwardRef(function StatementDocument(
             {rows.length === 0 ? (
               <tr><Td colSpan={7}>No open bills.</Td></tr>
             ) : null}
+            {truncated ? (
+              <tr style={{ borderTop: '1px solid #EFF2F5' }}>
+                <Td colSpan={7} muted>
+                  … and {truncated} older bill(s) not listed here. Full statement on request.
+                </Td>
+              </tr>
+            ) : null}
           </tbody>
           <tfoot>
-            <tr style={{ borderTop: '2px solid #0F1F2E', background: '#F7F9FA' }}>
-              <Td bold>Total</Td>
+            <tr style={{ borderTop: '1px solid #0F1F2E', background: '#F7F9FA' }}>
+              <Td bold>Total of bills listed</Td>
+              <Td /><Td /><Td />
+              <Td mono right bold>{plain(listed)}</Td>
+              <Td /><Td />
+            </tr>
+            {hasNotListed ? (
+              <tr>
+                <Td colSpan={4} muted>
+                  Add: {truncated ? `${truncated} further bill(s)` : 'further bills'} not listed above
+                </Td>
+                <Td mono right>{plain(notListed)}</Td>
+                <Td /><Td />
+              </tr>
+            ) : null}
+            {hasUnallocated ? (
+              <tr style={{ background: '#FFFDF5' }}>
+                <Td colSpan={4}>
+                  {unallocated < 0
+                    ? 'Less: payments received from you, not yet applied to a bill'
+                    : 'Add: other adjustments in our ledger'}
+                </Td>
+                <Td mono right bold>{plain(unallocated)}</Td>
+                <Td /><Td />
+              </tr>
+            ) : null}
+            <tr style={{ borderTop: '2px solid #0F1F2E', background: '#EDF1F4' }}>
+              <Td bold>Net outstanding</Td>
               <Td /><Td /><Td />
               <Td mono right bold>{plain(party.current_outstanding)}</Td>
               <Td /><Td />
@@ -178,8 +247,12 @@ const StatementDocument = forwardRef(function StatementDocument(
           Kindly arrange payment at your earliest, or let us know the expected date.
         </p>
         <p style={{ margin: '4px 0 0' }}>
-          If any bill shown above is already settled, please tell us which — so we can
-          apply the receipt against the correct bill in our records.
+          {hasUnallocated && unallocated < 0
+            ? `We show ${plain(Math.abs(unallocated))} received from you that is not yet applied to any ` +
+              'particular bill. Kindly confirm which bills it should be set against, so our records ' +
+              'match yours.'
+            : 'If any bill shown above is already settled, please tell us which — so we can apply the ' +
+              'receipt against the correct bill in our records.'}
         </p>
       </div>
 

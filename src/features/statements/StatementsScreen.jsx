@@ -154,7 +154,21 @@ export default function StatementsScreen() {
         </table>
       </div>
 
-      {preview ? <PreviewDialog preview={preview} onClose={() => setPreview(null)} /> : null}
+      {preview ? (
+        <PreviewDialog
+          preview={preview}
+          onClose={() => setPreview(null)}
+          onShared={async () => {
+            await supabase.from('followups').insert({
+              party_id: preview.party.party_id,
+              method: 'whatsapp',
+              outcome: `Statement sent as image — balance as on ${preview.asOf}`,
+            });
+            setSentIds((s) => new Set(s).add(preview.party.party_id));
+            queryClient.invalidateQueries({ queryKey: ['followups'] });
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -164,7 +178,7 @@ function StatementActions({ party, snapshot, sent, onPreview, onSent }) {
 
   async function open() {
     setBusy(true);
-    const bills = await loadBills(party.party_id, snapshot?.id);
+    const { bills } = await loadBills(party.party_id, snapshot?.id);
     const link = statementWhatsAppLink(party, bills, { asOf: snapshot?.report_date });
     setBusy(false);
     if (!link) return;
@@ -182,11 +196,12 @@ function StatementActions({ party, snapshot, sent, onPreview, onSent }) {
 
   async function show() {
     setBusy(true);
-    const bills = await loadBills(party.party_id, snapshot?.id);
+    const { bills, truncated } = await loadBills(party.party_id, snapshot?.id);
     setBusy(false);
     onPreview({
       party,
       bills,
+      truncated,
       asOf: snapshot?.report_date,
       text: buildStatementText(party, bills, { asOf: snapshot?.report_date }),
     });
@@ -207,17 +222,25 @@ function StatementActions({ party, snapshot, sent, onPreview, onSent }) {
   );
 }
 
+const STATEMENT_BILL_LIMIT = 60;
+
+/**
+ * Credit notes carry a negative balance and belong on a statement — leaving
+ * them out would overstate what is owed. Only the oldest are listed, since a
+ * statement running to four pages does not get read.
+ */
 async function loadBills(partyId, snapshotId) {
-  if (!snapshotId) return [];
-  const { data } = await supabase
+  if (!snapshotId) return { bills: [], truncated: 0 };
+  const { data, count } = await supabase
     .from('bills')
-    .select('bill_no, bill_date, balance, bill_amount, received, bill_age_days')
+    .select('bill_no, bill_date, balance, bill_amount, received, bill_age_days', { count: 'exact' })
     .eq('party_id', partyId)
     .eq('snapshot_id', snapshotId)
-    .gt('balance', 0)
+    .neq('balance', 0)
     .order('bill_date', { ascending: true })
-    .limit(200);
-  return data ?? [];
+    .limit(STATEMENT_BILL_LIMIT);
+  const bills = data ?? [];
+  return { bills, truncated: Math.max(0, (count ?? bills.length) - bills.length) };
 }
 
 /**
@@ -228,18 +251,57 @@ async function loadBills(partyId, snapshotId) {
  *   Print    — the browser's own Save as PDF, for email or filing.
  *   Text     — the wa.me route: one click, but plain text only.
  */
-function PreviewDialog({ preview, onClose }) {
+function PreviewDialog({ preview, onClose, onShared }) {
   const docRef = useRef(null);
   const [busy, setBusy] = useState(null);
+
+  /**
+   * Hand the image to the phone's own share sheet, which lists WhatsApp.
+   *
+   * This is the only way a web page can put a FILE into WhatsApp, and it
+   * exists only on phones — desktop browsers do not implement file sharing.
+   * So: share sheet where it works, download where it does not, and say
+   * which is happening rather than leaving a button that quietly does
+   * something different depending on the device.
+   */
+  async function makePng() {
+    const { toPng } = await import('html-to-image');
+    const url = await toPng(docRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' });
+    const blob = await (await fetch(url)).blob();
+    const name = `${preview.party.display_name.replace(/[^A-Za-z0-9]+/g, '_')}_statement.png`;
+    return { url, file: new File([blob], name, { type: 'image/png' }), name };
+  }
+
+  const canShareFiles =
+    typeof navigator !== 'undefined' &&
+    navigator.canShare &&
+    navigator.canShare({ files: [new File([''], 'x.png', { type: 'image/png' })] });
+
+  async function shareToWhatsApp() {
+    setBusy('share');
+    try {
+      const { file } = await makePng();
+      await navigator.share({
+        files: [file],
+        title: `Statement — ${preview.party.display_name}`,
+        text: preview.text,
+      });
+      onShared?.();
+    } catch (e) {
+      // A cancelled share sheet is not a failure worth shouting about.
+      if (e?.name !== 'AbortError') console.warn(e);
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function downloadImage() {
     setBusy('image');
     try {
-      const { toPng } = await import('html-to-image');
-      const url = await toPng(docRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' });
+      const { url, name } = await makePng();
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${preview.party.display_name.replace(/[^A-Za-z0-9]+/g, '_')}_statement.png`;
+      a.download = name;
       a.click();
     } finally {
       setBusy(null);
@@ -267,7 +329,13 @@ function PreviewDialog({ preview, onClose }) {
            className="fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[min(860px,94vw)] -translate-x-1/2 -translate-y-1/2 flex-col border border-hair bg-canvas shadow-[0_0_50px_rgba(15,31,46,.3)]">
         <div className="flex flex-wrap items-center gap-2 border-b border-hair bg-white px-4 py-3">
           <h3 className="mr-auto truncate text-[14px] font-semibold">{preview.party.display_name}</h3>
-          <button type="button" className="btn btn-primary px-3 py-[5px] text-[12px]"
+          {canShareFiles ? (
+            <button type="button" className="btn btn-primary px-3 py-[5px] text-[12px]"
+                    onClick={shareToWhatsApp} disabled={busy === 'share'}>
+              {busy === 'share' ? 'Preparing…' : 'Send on WhatsApp'}
+            </button>
+          ) : null}
+          <button type="button" className="btn btn-secondary px-3 py-[5px] text-[12px]"
                   onClick={downloadImage} disabled={busy === 'image'}>
             {busy === 'image' ? 'Making image…' : 'Download image'}
           </button>
@@ -290,13 +358,15 @@ function PreviewDialog({ preview, onClose }) {
               party={preview.party}
               bills={preview.bills}
               asOf={preview.asOf}
+              truncated={preview.truncated ?? 0}
             />
           </div>
         </div>
 
         <div className="border-t border-hair bg-white px-4 py-2 text-[11px] text-faint text-pretty">
-          WhatsApp cannot be handed a file by a web page. Download the image and attach it, or use
-          Send for the plain-text version that opens WhatsApp directly.
+          {canShareFiles
+            ? 'Send on WhatsApp opens your phone\'s share sheet with the statement attached — pick WhatsApp, pick the contact, send.'
+            : 'On a computer, browsers will not hand a file to WhatsApp. Download the image and attach it, or open this page on your phone, where Send on WhatsApp attaches it directly.'}
         </div>
       </div>
     </>
