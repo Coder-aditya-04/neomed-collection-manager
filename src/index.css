@@ -50,38 +50,15 @@
   }
 
   /*
-   * Green lines travelling along the grid, behind everything.
-   *
-   * Two fixed layers, animated on transform alone so the compositor handles
-   * them on the GPU and nothing above has to repaint. They sit at z-index -1
-   * and ignore pointer events, so they cannot interfere with the interface.
+   * The tracing layer. Fixed behind everything, never interactive, and its
+   * own stacking context so the paths repaint without touching the interface.
    */
-  body::before,
-  body::after {
-    content: "";
+  .grid-trace {
     position: fixed;
-    inset: -34px;
+    inset: 0;
     z-index: -1;
     pointer-events: none;
-    will-change: transform;
-  }
-  body::before {
-    background:
-      linear-gradient(to right, transparent 0 1px, transparent 1px 34px),
-      repeating-linear-gradient(
-        to right,
-        rgba(0, 133, 122, 0.30) 0 1px,
-        transparent 1px 340px
-      );
-    animation: gridDriftX 11s linear infinite;
-  }
-  body::after {
-    background: repeating-linear-gradient(
-      to bottom,
-      rgba(0, 133, 122, 0.22) 0 1px,
-      transparent 1px 408px
-    );
-    animation: gridDriftY 17s linear infinite;
+    opacity: 0.5;
   }
 
   /* Rule 7: figures line up in columns, always. */
@@ -134,28 +111,35 @@
      * 20px, with a long table scrolling inside, the browser re-blurs the
      * backdrop every frame and the screen locks up.
      */
+    /*
+     * What makes this read as glass rather than grey paint: the grid is
+     * visible through it, the top edge catches light, and the blur lifts the
+     * saturation of whatever is behind. Blur stays at 12px because it is the
+     * expensive half — at 20px a long table scrolling inside re-blurs the
+     * backdrop every frame.
+     */
     background: linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.66),
-      rgba(255, 255, 255, 0.5)
+      152deg,
+      rgba(255, 255, 255, 0.58) 0%,
+      rgba(255, 255, 255, 0.44) 48%,
+      rgba(255, 255, 255, 0.52) 100%
     );
-    backdrop-filter: blur(10px) saturate(1.4);
-    -webkit-backdrop-filter: blur(10px) saturate(1.4);
-    border: 1px solid rgba(255, 255, 255, 0.7);
-    outline: 1px solid rgba(220, 228, 234, 0.55);
-    outline-offset: -1px;
+    backdrop-filter: blur(12px) saturate(1.8) brightness(1.04);
+    -webkit-backdrop-filter: blur(12px) saturate(1.8) brightness(1.04);
+    border: 1px solid rgba(255, 255, 255, 0.55);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.95),
-      inset 0 -1px 0 rgba(15, 31, 46, 0.03),
-      0 1px 2px rgba(15, 31, 46, 0.04),
-      0 12px 32px -20px rgba(15, 31, 46, 0.28);
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+      inset 0 -14px 24px -22px rgba(0, 133, 122, 0.22),
+      0 1px 1px rgba(15, 31, 46, 0.03),
+      0 14px 34px -24px rgba(15, 31, 46, 0.3);
     transition: box-shadow 260ms var(--ease-dc), border-color 260ms var(--ease-dc),
       transform 260ms var(--ease-dc);
   }
 
   .panel-lift:hover {
     transform: translateY(-2px);
-    border-color: rgba(0, 133, 122, 0.4);
+    border-color: rgba(255, 255, 255, 0.8);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.95),
       0 2px 4px rgba(15, 31, 46, 0.05),
@@ -293,14 +277,10 @@
  * accessibility setting the user's own OS controls, not a style choice.
  */
 
-/* Green lines drifting along the background grid, one axis each. */
-@keyframes gridDriftX {
-  from { transform: translateX(0); }
-  to   { transform: translateX(340px); }
-}
-@keyframes gridDriftY {
-  from { transform: translateY(0); }
-  to   { transform: translateY(408px); }
+/* A lit segment running the length of a grid route, then round again. */
+@keyframes traceRun {
+  from { stroke-dashoffset: var(--from, 4000px); }
+  to   { stroke-dashoffset: 0; }
 }
 
 /* The green line running under the header, continuously. */
@@ -375,8 +355,7 @@
  * to four hundred rows, and repainting drifting lines and a sweeping rail
  * behind it on every scroll frame is what made the screen seize.
  */
-body.dialog-open::before,
-body.dialog-open::after,
+body.dialog-open .grid-trace path,
 body.dialog-open .rail::before,
 body.dialog-open .rail::after,
 body.dialog-open .glass-sheen::after,
