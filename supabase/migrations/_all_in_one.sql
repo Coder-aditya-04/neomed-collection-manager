@@ -3,6 +3,7 @@
 -- Paste into the Supabase SQL editor. Safe to re-run.
 -- ===================================================================
 
+
 -- ############ 0001_schema.sql ############
 
 -- ===================================================================
@@ -323,6 +324,7 @@ create trigger parties_touch
   before update on parties
   for each row execute function fn_touch_updated_at();
 
+
 -- ############ 0002_rls.sql ############
 
 -- ===================================================================
@@ -481,6 +483,7 @@ create policy app_users_write on app_users
 comment on table party_profiles is
   'Computed by fn_compute_profiles. No client write policy exists: a profile '
   'is derived from bill_changes and must never be hand-edited.';
+
 
 -- ############ 0003_ageing.sql ############
 
@@ -746,6 +749,7 @@ alter view v_portfolio_ageing  set (security_invoker = on);
 -- grant in 0002 would leave them unreadable, since that runs first.
 grant select on v_latest_snapshot, v_party_ageing, v_portfolio_ageing to authenticated;
 
+
 -- ############ 0004_priority.sql ############
 
 -- ===================================================================
@@ -933,6 +937,7 @@ as $$
   limit greatest(p_limit, 0);
 $$;
 
+
 -- ############ 0005_seed_settings.sql ############
 
 -- ===================================================================
@@ -964,6 +969,7 @@ insert into settings (key, value) values
      "never_prune": ["bill_changes"]
    }'::jsonb)
 on conflict (key) do nothing;
+
 
 -- ############ 0006_diff_profiles.sql ############
 
@@ -1348,6 +1354,7 @@ grant execute on function fn_compute_profiles() to authenticated;
 grant execute on function fn_settle_promises(integer) to authenticated;
 grant execute on function fn_what_changed() to authenticated;
 
+
 -- ############ 0007_recovery.sql ############
 
 -- ===================================================================
@@ -1621,6 +1628,7 @@ create policy recovery_targets_write on recovery_targets
 grant execute on function fn_recovery_scorecard(date, date) to authenticated;
 grant execute on function fn_party_contact_counts(uuid) to authenticated;
 
+
 -- ############ 0008_unapplied_receipts.sql ############
 
 -- ===================================================================
@@ -1654,9 +1662,28 @@ comment on column bills.is_on_account is
 create index if not exists bills_on_account_idx
   on bills (party_id, snapshot_id) where is_on_account;
 
--- Existing rows: the parser keys a numberless row as "*~<date>~<amount>".
+-- -------------------------------------------------------------------
+-- Backfill the rows that are already here.
+--
+-- bills carries an immutability trigger (rule 4): Marg is the financial
+-- truth, so an imported row is never edited afterwards. It fires on
+-- UPDATE and it is right to — without disabling it this statement fails
+-- with "bills rows are immutable".
+--
+-- This is a schema migration, not an application edit, and it changes no
+-- figure: is_on_account records how Marg WROTE the row, derived from the
+-- bill number already stored on it. No amount, date or balance is
+-- touched. The trigger goes back on before the statement block ends, so
+-- the guarantee is restored whatever happens next.
+--
+-- The parser keys a numberless row as "*~<date>~<amount>".
+-- -------------------------------------------------------------------
+alter table bills disable trigger bills_immutable;
+
 update bills set is_on_account = true
 where is_on_account = false and (bill_no like '*~%' or bill_no like '*%' or bill_no like '#%');
+
+alter table bills enable trigger bills_immutable;
 
 drop view if exists v_unallocated_receipts;
 
