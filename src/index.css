@@ -43,10 +43,45 @@
     -webkit-font-smoothing: antialiased;
     /* The drawing-board grid the prototype sits on. */
     background:
-      repeating-linear-gradient(to right, rgba(15, 31, 46, 0.045) 0 1px, transparent 1px 34px),
-      repeating-linear-gradient(to bottom, rgba(15, 31, 46, 0.045) 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(to right, rgba(15, 31, 46, 0.05) 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(to bottom, rgba(15, 31, 46, 0.05) 0 1px, transparent 1px 34px),
       var(--color-canvas);
     background-attachment: fixed;
+  }
+
+  /*
+   * Green lines travelling along the grid, behind everything.
+   *
+   * Two fixed layers, animated on transform alone so the compositor handles
+   * them on the GPU and nothing above has to repaint. They sit at z-index -1
+   * and ignore pointer events, so they cannot interfere with the interface.
+   */
+  body::before,
+  body::after {
+    content: "";
+    position: fixed;
+    inset: -34px;
+    z-index: -1;
+    pointer-events: none;
+    will-change: transform;
+  }
+  body::before {
+    background:
+      linear-gradient(to right, transparent 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(
+        to right,
+        rgba(0, 133, 122, 0.30) 0 1px,
+        transparent 1px 340px
+      );
+    animation: gridDriftX 11s linear infinite;
+  }
+  body::after {
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0, 133, 122, 0.22) 0 1px,
+      transparent 1px 408px
+    );
+    animation: gridDriftY 17s linear infinite;
   }
 
   /* Rule 7: figures line up in columns, always. */
@@ -92,13 +127,20 @@
    */
   .panel {
     position: relative;
+    /*
+     * Deliberately thin. The grid and the drifting lines are meant to read
+     * through the panel — that is the whole look — so the white sits around
+     * 60% and the blur is kept low. Blur is the expensive part of glass: at
+     * 20px, with a long table scrolling inside, the browser re-blurs the
+     * backdrop every frame and the screen locks up.
+     */
     background: linear-gradient(
       160deg,
-      rgba(255, 255, 255, 0.86),
-      rgba(255, 255, 255, 0.68)
+      rgba(255, 255, 255, 0.66),
+      rgba(255, 255, 255, 0.5)
     );
-    backdrop-filter: blur(20px) saturate(1.7);
-    -webkit-backdrop-filter: blur(20px) saturate(1.7);
+    backdrop-filter: blur(10px) saturate(1.4);
+    -webkit-backdrop-filter: blur(10px) saturate(1.4);
     border: 1px solid rgba(255, 255, 255, 0.7);
     outline: 1px solid rgba(220, 228, 234, 0.55);
     outline-offset: -1px;
@@ -153,7 +195,10 @@
     animation-delay: -1.2s;
   }
 
-  /* Glass that catches the light as it passes. */
+  /*
+   * A light sweep. Never put this on something that also has backdrop-filter:
+   * the two together make the browser re-blur on every animation frame.
+   */
   .glass-sheen {
     position: relative;
     overflow: hidden;
@@ -248,6 +293,16 @@
  * accessibility setting the user's own OS controls, not a style choice.
  */
 
+/* Green lines drifting along the background grid, one axis each. */
+@keyframes gridDriftX {
+  from { transform: translateX(0); }
+  to   { transform: translateX(340px); }
+}
+@keyframes gridDriftY {
+  from { transform: translateY(0); }
+  to   { transform: translateY(408px); }
+}
+
 /* The green line running under the header, continuously. */
 @keyframes railRun {
   0%   { transform: translateX(-100%); }
@@ -314,6 +369,20 @@
 .stagger > *:nth-child(4)  { animation-delay: 72ms; }
 .stagger > *:nth-child(5)  { animation-delay: 96ms; }
 .stagger > *:nth-child(n+6) { animation-delay: 120ms; }
+
+/*
+ * While a dialog is open the continuous animations stop. A statement can run
+ * to four hundred rows, and repainting drifting lines and a sweeping rail
+ * behind it on every scroll frame is what made the screen seize.
+ */
+body.dialog-open::before,
+body.dialog-open::after,
+body.dialog-open .rail::before,
+body.dialog-open .rail::after,
+body.dialog-open .glass-sheen::after,
+body.dialog-open .nav-glow::before {
+  animation-play-state: paused;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,

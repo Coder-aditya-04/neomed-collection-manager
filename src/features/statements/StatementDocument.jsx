@@ -164,7 +164,7 @@ const StatementDocument = forwardRef(function StatementDocument(
           </thead>
           <tbody>
             {rows.map((b, i) => (
-              <tr key={`${b.bill_no}-${i}`} style={{ borderTop: '1px solid #EFF2F5' }}>
+              <tr key={`${b.bill_no}-${i}`} style={ROW_STYLE}>
                 <Td mono>{displayBillNo(b.bill_no)}</Td>
                 <Td mono>{margDate(b.bill_date)}</Td>
                 <Td mono right>{plain(b.bill_amount ?? b.balance)}</Td>
@@ -275,16 +275,35 @@ function Th({ children, w, right }) {
   );
 }
 
-function Td({ children, right, mono, bold, muted, colSpan }) {
-  return (
-    <td colSpan={colSpan} style={{
-      padding: '5px 9px',
+/*
+ * Cell styles are built once and shared. Composing a fresh style object per
+ * cell meant ~2,700 new objects on every render of a 386-bill statement, each
+ * one defeating React's bail-out and forcing the DOM attribute to be rewritten.
+ */
+const TD_BASE = { padding: '5px 9px', whiteSpace: 'nowrap' };
+const TD_CACHE = new Map();
+
+function tdStyle(right, mono, bold, muted) {
+  const key = `${right ? 1 : 0}${mono ? 1 : 0}${bold ? 1 : 0}${muted ? 1 : 0}`;
+  let style = TD_CACHE.get(key);
+  if (!style) {
+    style = {
+      ...TD_BASE,
       textAlign: right ? 'right' : 'left',
       fontFamily: mono ? '"IBM Plex Mono", monospace' : 'inherit',
       fontWeight: bold ? 600 : 400,
       color: muted ? '#5C6B78' : 'inherit',
-      whiteSpace: 'nowrap',
-    }}>{children}</td>
+    };
+    TD_CACHE.set(key, style);
+  }
+  return style;
+}
+
+const ROW_STYLE = { borderTop: '1px solid #EFF2F5' };
+
+function Td({ children, right, mono, bold, muted, colSpan }) {
+  return (
+    <td colSpan={colSpan} style={tdStyle(right, mono, bold, muted)}>{children}</td>
   );
 }
 

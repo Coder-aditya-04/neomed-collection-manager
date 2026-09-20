@@ -271,9 +271,14 @@ function PreviewDialog({ preview, onClose, onShared }) {
     window.addEventListener('keydown', onKey);
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    // Stops the drifting background lines and the header rail while this is
+    // open. A statement can run to four hundred rows, and repainting those
+    // animations behind it on every scroll frame is what locked the screen.
+    document.body.classList.add('dialog-open');
     return () => {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = previous;
+      document.body.classList.remove('dialog-open');
     };
   }, [onClose]);
 
@@ -381,15 +386,17 @@ function PreviewDialog({ preview, onClose, onShared }) {
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto bg-[#DDE4EA] p-5">
+        {/*
+          * `zoom` rather than `transform: scale()`. A transform on a subtree
+          * this tall creates one enormous composite layer that the browser
+          * repaints whole on every scroll; zoom reflows once and then scrolls
+          * like ordinary content. `contain` keeps the work inside this box.
+          */}
+        <div className="min-h-0 flex-1 overflow-auto bg-[#DDE4EA] p-5"
+             style={{ contain: 'content' }}>
           <div
-            className="mx-auto shadow-[0_2px_14px_rgba(15,31,46,.18)] transition-transform duration-200"
-            style={
-              fit
-                ? { width: 780, transform: 'scale(0.86)', transformOrigin: 'top center',
-                    marginBottom: -0.14 * 1400 }
-                : { width: 780 }
-            }
+            className="mx-auto shadow-[0_2px_14px_rgba(15,31,46,.18)]"
+            style={{ width: 780, zoom: fit ? 0.8 : 1 }}
           >
             <StatementDocument
               ref={docRef}

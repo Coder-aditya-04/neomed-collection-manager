@@ -25,9 +25,11 @@ export default function PartyDrawer({ party, onClose }) {
     // scrolling under it, which reads as the drawer itself coming apart.
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    document.body.classList.add('dialog-open');
     return () => {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = previous;
+      document.body.classList.remove('dialog-open');
     };
   }, [onClose]);
 

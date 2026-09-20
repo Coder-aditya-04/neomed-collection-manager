@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
-import { formatInr, formatCount, formatAge } from '../../lib/format.js';
+import { latestSnapshotQuery } from '../../lib/queries.js';
+import { formatInr, formatCount, formatAge, formatDate } from '../../lib/format.js';
 import { whatsAppLink } from '../registers/Registers.jsx';
+import { displayBillNo, plain } from '../statements/StatementDocument.jsx';
 
 /**
  * Money received but not yet settled against a bill.
@@ -31,6 +33,7 @@ export default function UnallocatedScreen() {
   });
 
   const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(null);
 
   const rows = useMemo(() => {
     const q = query.toUpperCase().trim();
@@ -96,7 +99,9 @@ export default function UnallocatedScreen() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.party_id} className="border-b border-rule last:border-b-0 hover:bg-[#F7FAFB]">
+              <tr key={r.party_id}
+                  onClick={() => setOpen(r)}
+                  className="cursor-pointer border-b border-rule last:border-b-0 hover:bg-[#F7FAFB]">
                 <td className="px-[10px] py-[6px]">
                   <span className="font-medium">{r.display_name}</span>
                   {r.contact_person ? (
@@ -110,7 +115,7 @@ export default function UnallocatedScreen() {
                 <td className="tnum px-[10px] py-[6px] text-right text-mute">{formatInr(r.bills_total)}</td>
                 <td className="tnum px-[10px] py-[6px] text-right text-mute">{formatCount(r.bill_count)}</td>
                 <td className="tnum px-[10px] py-[6px] text-right text-mute">{formatAge(r.oldest_bill_age_days)}</td>
-                <td className="px-[10px] py-[6px]">
+                <td className="px-[10px] py-[6px]" onClick={(e) => e.stopPropagation()}>
                   <Contact row={r} />
                 </td>
               </tr>
@@ -142,7 +147,144 @@ export default function UnallocatedScreen() {
           </ul>
         </section>
       ) : null}
+      {open ? <BillsDrawer row={open} onClose={() => setOpen(null)} /> : null}
     </div>
+  );
+}
+
+/**
+ * The bills the money could be set against.
+ *
+ * This is what the call is actually about: the party paid, the payment sits
+ * against their name, and somebody has to agree which invoices it clears.
+ * Oldest first, because those are the ones that have been ageing while the
+ * money sat unapplied.
+ */
+function BillsDrawer({ row, onClose }) {
+  const { data: snapshot } = useQuery(latestSnapshotQuery());
+  const { data: bills, isLoading } = useQuery({
+    queryKey: ['unallocated-bills', row.party_id, snapshot?.id],
+    enabled: Boolean(snapshot?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bills')
+        .select('bill_no, bill_date, bill_amount, received, balance, bill_age_days')
+        .eq('party_id', row.party_id)
+        .eq('snapshot_id', snapshot.id)
+        .neq('balance', 0)
+        .order('bill_date', { ascending: true })
+        .limit(2000);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.body.classList.add('dialog-open');
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previous;
+      document.body.classList.remove('dialog-open');
+    };
+  }, [onClose]);
+
+  // How far down the list the unapplied money reaches, oldest first.
+  let remaining = Number(row.unallocated);
+  const covered = (bills ?? []).map((b) => {
+    const take = Math.max(0, Math.min(remaining, Number(b.balance)));
+    remaining -= take;
+    return { ...b, covers: take };
+  });
+  const clears = covered.filter((b) => b.covers >= Number(b.balance) - 1).length;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-ink/45" onClick={onClose} aria-hidden />
+      <aside role="dialog" aria-label={row.display_name}
+             className="fixed inset-y-0 right-0 z-50 flex w-[min(720px,95vw)] flex-col border-l border-hair bg-canvas shadow-[0_0_44px_rgba(15,31,46,.28)]"
+             style={{ contain: 'content' }}>
+        <header className="border-b border-hair bg-white/85 px-[18px] py-3 backdrop-blur">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-[16px] font-semibold tracking-[-0.015em]">{row.display_name}</h2>
+              <p className="mt-1 max-w-[70ch] text-[11.5px] text-mute text-pretty">
+                They have paid <strong className="tnum">{formatInr(row.unallocated)}</strong> that is
+                sitting against their name without being applied to any bill. Agree on the call
+                which of these it clears, then enter it in Marg.
+              </p>
+            </div>
+            <button type="button" onClick={onClose} className="btn btn-secondary px-3 py-1 text-[12px]">Close</button>
+          </div>
+
+          <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-px bg-hair">
+            <Fig label="To allocate" value={formatInr(row.unallocated)} tone="var(--color-age-2)" />
+            <Fig label="Marg balance" value={formatInr(row.marg_balance)} />
+            <Fig label="Bills total" value={formatInr(row.bills_total)} />
+            <Fig label="Would clear" value={`${formatCount(clears)} bills`} tone="var(--color-teal-deep)" />
+          </div>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-auto px-[18px] py-3">
+          {isLoading ? (
+            <p className="text-[12px] text-mute">Loading bills…</p>
+          ) : (
+            <div className="border border-hair bg-white">
+              <table className="w-full border-collapse text-[11.5px]">
+                <thead>
+                  <tr>
+                    <Th2>Bill no.</Th2><Th2>Bill date</Th2>
+                    <Th2 align="right">Bill amt.</Th2><Th2 align="right">Received</Th2>
+                    <Th2 align="right">Balance</Th2><Th2 align="right">Days</Th2>
+                    <Th2 align="right">Covered</Th2>
+                  </tr>
+                </thead>
+                <tbody>
+                  {covered.map((b, i) => (
+                    <tr key={`${b.bill_no}-${i}`}
+                        className={`border-t border-rule ${b.covers > 0 ? 'bg-[#F2FAF7]' : ''}`}>
+                      <td className="px-[9px] py-[5px] font-mono">{displayBillNo(b.bill_no)}</td>
+                      <td className="px-[9px] py-[5px] font-mono text-mute">{formatDate(b.bill_date)}</td>
+                      <td className="tnum px-[9px] py-[5px] text-right">{plain(b.bill_amount)}</td>
+                      <td className="tnum px-[9px] py-[5px] text-right text-mute">{plain(b.received)}</td>
+                      <td className="tnum px-[9px] py-[5px] text-right font-semibold">{plain(b.balance)}</td>
+                      <td className="tnum px-[9px] py-[5px] text-right text-mute">{b.bill_age_days ?? ''}</td>
+                      <td className="tnum px-[9px] py-[5px] text-right text-teal-deep">
+                        {b.covers > 0 ? plain(b.covers) : ''}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="mt-2 text-[11px] text-faint text-pretty">
+            The green rows are how far the unapplied money reaches if it is set against the oldest
+            bills first. That is a suggestion for the conversation, not an instruction — the party
+            may well have meant it for particular invoices.
+          </p>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function Fig({ label, value, tone }) {
+  return (
+    <div className="bg-white/85 px-3 py-2">
+      <div className="kicker">{label}</div>
+      <div className="tnum mt-[2px] text-[14px] font-medium" style={{ color: tone ?? 'inherit' }}>{value}</div>
+    </div>
+  );
+}
+
+function Th2({ children, align = 'left' }) {
+  return (
+    <th className="sticky top-0 border-b border-hair bg-white px-[9px] py-[6px] text-[9.5px] font-semibold uppercase tracking-[0.08em] text-mute"
+        style={{ textAlign: align }}>{children}</th>
   );
 }
 

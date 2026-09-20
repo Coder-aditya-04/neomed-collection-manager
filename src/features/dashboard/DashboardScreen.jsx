@@ -239,7 +239,7 @@ export default function DashboardScreen() {
 
 function Figure({ label, value, note, color }) {
   return (
-    <div className="glass-sheen bg-white/[0.82] px-[14px] pb-[13px] pt-3 backdrop-blur-xl backdrop-saturate-150 transition-colors duration-200 hover:bg-white/95">
+    <div className="bg-white/[0.62] px-[14px] pb-[13px] pt-3 backdrop-blur-sm transition-colors duration-200 hover:bg-white/80">
       <div className="kicker">{label}</div>
       <div
         className="tnum mt-1 whitespace-nowrap text-[26px] font-medium leading-[1.1] tracking-[-0.03em]"
