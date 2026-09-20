@@ -30,6 +30,20 @@
   /* Text that sits on a filled accent — white in both themes. */
   --color-onaccent: #ffffff;
 
+  /*
+   * The sidebar rail.
+   *
+   * In dark mode the sidebar separates itself from the canvas for free: the
+   * panel is lighter than what surrounds it. In light mode a white panel on a
+   * near-white canvas next to white content panels gave three shades of white
+   * and no hierarchy — the navigation floated instead of anchoring the page.
+   * So light mode gets a tinted rail, cooler and a step deeper than the
+   * canvas, with a green-tinted edge to tie it to the brand.
+   */
+  --sidebar-a: rgba(213, 227, 229, 0.88);
+  --sidebar-b: rgba(228, 238, 238, 0.80);
+  --sidebar-edge: rgba(0, 133, 122, 0.16);
+
   /* The ageing ramp: within terms -> 1-30 -> 31-60 -> 60+ */
   --color-age-0: #14958a;
   --color-age-1: #d8a21a;
@@ -62,6 +76,9 @@
   --color-mute: #93a5b6;
   --color-faint: #6f8294;
   --color-rule: #1c2839;
+  --sidebar-a: rgba(18, 28, 45, 0.82);
+  --sidebar-b: rgba(14, 22, 37, 0.74);
+  --sidebar-edge: rgba(79, 209, 197, 0.16);
 }
 
 @layer base {
@@ -217,6 +234,18 @@
       0 2px 4px rgba(15, 31, 46, 0.05),
       0 20px 40px -20px rgba(15, 31, 46, 0.32),
       0 0 0 1px rgba(0, 133, 122, 0.12);
+  }
+
+  /*
+   * The navigation rail. Sits on .panel and replaces only its fill, so the
+   * glass, the blur and the grid showing through are all unchanged.
+   */
+  .sidebar {
+    background: linear-gradient(178deg, var(--sidebar-a) 0%, var(--sidebar-b) 100%);
+    border-right: 1px solid var(--sidebar-edge);
+    box-shadow:
+      inset -1px 0 0 rgba(255, 255, 255, 0.28),
+      2px 0 18px -14px rgba(15, 31, 46, 0.4);
   }
 
   /*

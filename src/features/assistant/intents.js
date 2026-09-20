@@ -180,6 +180,24 @@ const INTENTS = [
     ],
   },
   {
+    /*
+     * The client calls these the "difference" parties, which is the word
+     * they used in the meeting and therefore the word they will type. It has
+     * to be matched before credit_balance_parties, because an unapplied
+     * receipt and a credit balance sound alike and mean different things: a
+     * credit balance is a party who is ahead overall, while this is money
+     * received that nobody has pointed at an invoice yet.
+     */
+    intent: 'unapplied_receipts',
+    patterns: [
+      /DIFFERENCE/, /DIFFRENCE/, /DIFFERNCE/,
+      /NOT (BEEN )?(SETTLED|ADJUSTED|ALLOCATED|APPLIED)/,
+      /UN(SETTLED|ALLOCATED|APPLIED|ADJUSTED)/,
+      /TO ALLOCATE/, /PART PAYMENT/, /PARTIAL PAYMENT/,
+      /RECEIVED BUT/, /PAID BUT/, /ON ACCOUNT/,
+    ],
+  },
+  {
     intent: 'credit_balance_parties',
     patterns: [/CREDIT BALANCE/, /NEGATIVE BALANCE/, /ADVANCE/, /IN CREDIT/],
   },
@@ -319,21 +337,57 @@ function paramsFor(intent, raw) {
 }
 
 /** What the assistant will answer, for the help card and the chips. */
-export const CAPABILITIES = [
-  { intent: 'summary', example: 'What is the overall position?' },
-  { intent: 'party_lookup', example: 'How much does Godavari owe?' },
-  { intent: 'party_history', example: 'What is the payment history of Godavari?' },
-  { intent: 'top_parties', example: 'Top 10 by outstanding' },
-  { intent: 'above_amount', example: 'Parties above 5 lakh' },
-  { intent: 'older_than', example: 'Parties with a bill older than 90 days' },
-  { intent: 'ageing_breakdown', example: 'Show the ageing breakdown' },
-  { intent: 'who_to_call', example: 'Give me today\'s calls on priority' },
-  { intent: 'needs_credit_term', example: 'Which parties cannot I judge?' },
-  { intent: 'credit_balance_parties', example: 'Who is in credit?' },
-  { intent: 'claim_blocked', example: 'Who is blocked by a claim?' },
-  { intent: 'small_accounts', example: 'Which accounts are too small to chase?' },
-  { intent: 'what_changed', example: 'What changed since the last import?' },
-  { intent: 'broken_promises', example: 'Who did not keep their promise?' },
-  { intent: 'missed_followups', example: 'Which follow-ups were missed?' },
-  { intent: 'party_count', example: 'How many parties are there?' },
+/*
+ * The question list, grouped the way the work is.
+ *
+ * Sixteen examples in one flat column read as a specification rather than a
+ * menu — nobody scans it, so nobody discovers the questions that are worth
+ * asking. Grouped, somebody who has just been handed the product can find
+ * the one that matches what they came here to do.
+ *
+ * Every example is a question the software genuinely answers. Nothing is
+ * listed aspirationally: a suggestion that returns "I cannot answer that"
+ * teaches people to stop asking.
+ */
+export const CAPABILITY_GROUPS = [
+  {
+    group: 'Where the book stands',
+    items: [
+      { intent: 'summary', example: 'What is the overall position?' },
+      { intent: 'ageing_breakdown', example: 'Show the ageing breakdown' },
+      { intent: 'top_parties', example: 'Top 10 by outstanding' },
+      { intent: 'above_amount', example: 'Parties above 5 lakh' },
+      { intent: 'party_count', example: 'How many parties are there?' },
+      { intent: 'what_changed', example: 'What changed since the last import?' },
+    ],
+  },
+  {
+    group: 'Who to ring today',
+    items: [
+      { intent: 'who_to_call', example: "Give me today's calls on priority" },
+      { intent: 'older_than', example: 'Parties with a bill older than 90 days' },
+      { intent: 'broken_promises', example: 'Who did not keep their promise?' },
+      { intent: 'missed_followups', example: 'Which follow-ups were missed?' },
+      { intent: 'unapplied_receipts', example: 'Which parties have a difference to settle?' },
+    ],
+  },
+  {
+    group: 'About one party',
+    items: [
+      { intent: 'party_lookup', example: 'How much does Godavari owe?' },
+      { intent: 'party_history', example: 'What is the payment history of Godavari?' },
+    ],
+  },
+  {
+    group: 'Who I cannot judge',
+    items: [
+      { intent: 'needs_credit_term', example: 'Which parties cannot I judge?' },
+      { intent: 'credit_balance_parties', example: 'Who is in credit?' },
+      { intent: 'claim_blocked', example: 'Who is blocked by a claim?' },
+      { intent: 'small_accounts', example: 'Which accounts are too small to chase?' },
+    ],
+  },
 ];
+
+/** The same list, flat, for anything that just wants every example. */
+export const CAPABILITIES = CAPABILITY_GROUPS.flatMap((g) => g.items);

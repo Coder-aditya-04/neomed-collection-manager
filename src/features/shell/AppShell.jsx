@@ -147,7 +147,7 @@ export default function AppShell({ session }) {
   return (
     <div className="flex min-h-screen">
       <AmbientBackground />
-      <nav className="panel sticky top-0 flex h-screen w-[196px] flex-none flex-col rounded-none border-y-0 border-l-0">
+      <nav className="panel sidebar sticky top-0 flex h-screen w-[196px] flex-none flex-col rounded-none border-y-0 border-l-0">
         <div className="flex items-center gap-2 border-b border-hair px-3 py-[14px]">
           <Mark />
           <div className="min-w-0">

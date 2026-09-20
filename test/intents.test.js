@@ -198,4 +198,37 @@ describe('intent routing', () => {
     const b = matchIntent('who should I call today', PARTIES);
     expect(a).toEqual(b);
   });
+
+  /*
+   * The client says "difference" for a part payment that was never settled
+   * against a bill. These are the words they used in the meeting, spelling
+   * and all, so these are the words that have to route.
+   */
+  describe('the difference / unapplied-receipt question', () => {
+    const asked = [
+      'which parties have a difference to settle',
+      'show me the differnce wali parties',
+      'who has a diffrence',
+      'which payments are not settled',
+      'show unallocated payments',
+      'who paid but it is not adjusted',
+      'parties with part payment pending',
+      'what is on account',
+      'which parties do I need to allocate',
+    ];
+    for (const q of asked) {
+      it(`routes "${q}"`, () => {
+        expect(matchIntent(q, PARTIES).intent).toBe('unapplied_receipts');
+      });
+    }
+
+    it('does not swallow the credit-balance question, which means something else', () => {
+      // A credit balance is a party who is ahead overall. An unapplied
+      // receipt is money nobody has pointed at an invoice. Confusing the two
+      // would have somebody ringing a party who owes nothing.
+      expect(matchIntent('who is in credit', PARTIES).intent).toBe('credit_balance_parties');
+      expect(matchIntent('which parties have a negative balance', PARTIES).intent)
+        .toBe('credit_balance_parties');
+    });
+  });
 });

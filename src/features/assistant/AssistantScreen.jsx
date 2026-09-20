@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { partiesAgeingQuery } from '../../lib/queries.js';
-import { matchIntent, CAPABILITIES } from './intents.js';
+import { matchIntent, CAPABILITIES, CAPABILITY_GROUPS } from './intents.js';
 import { executeIntent } from './execute.js';
 import AgeingStrip from '../../components/AgeingStrip.jsx';
 
@@ -125,16 +125,25 @@ function Intro({ onAsk }) {
           Everything below is read from the current snapshot. Where a question needs a credit term
           that is not recorded, I will say so rather than estimate one.
         </p>
-        <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-x-4 gap-y-1">
-          {CAPABILITIES.map((c) => (
-            <button
-              key={c.intent}
-              type="button"
-              onClick={() => onAsk(c.example)}
-              className="truncate text-left text-[12px] text-teal-deep hover:underline"
-            >
-              {c.example}
-            </button>
+        <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-x-5 gap-y-4">
+          {CAPABILITY_GROUPS.map((g) => (
+            <div key={g.group}>
+              <div className="mb-[6px] text-[9.5px] font-semibold uppercase tracking-[0.11em] text-faint">
+                {g.group}
+              </div>
+              <div className="grid gap-[3px]">
+                {g.items.map((c) => (
+                  <button
+                    key={c.intent}
+                    type="button"
+                    onClick={() => onAsk(c.example)}
+                    className="truncate rounded-[3px] border border-transparent px-[7px] py-[4px] text-left text-[12px] text-teal-deep transition-colors hover:border-teal/30 hover:bg-teal/[0.07]"
+                  >
+                    {c.example}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </div>

@@ -352,6 +352,43 @@ const HANDLERS = {
     };
   },
 
+  /*
+   * The "difference" question. Money the party has paid that Marg holds
+   * against their name without it being set against any particular bill, so
+   * the invoices keep ageing as though nothing arrived. The answer leads with
+   * the receipt dates, because that is what makes the call possible: "the
+   * 20,000 you sent on 14 September is still unapplied."
+   */
+  async unapplied_receipts(params) {
+    const limit = params.count ?? 15;
+    const { data, error } = await supabase
+      .from('v_unallocated_receipts')
+      .select('*')
+      .limit(limit);
+    if (error) throw error;
+    if (!data?.length) {
+      return {
+        kind: 'text',
+        text: 'Nothing is sitting unapplied. Every receipt in the latest snapshot is already set against a bill.',
+      };
+    }
+    const total = data.reduce((a, r) => a + num(r.unallocated), 0);
+    return {
+      kind: 'answer',
+      text: `${formatCount(data.length)} parties are holding ${formatInr(total)} that was received but never applied to a bill. Ring them, agree which invoices it clears, and enter the allocation in Marg — until that happens those bills keep ageing as though nothing was paid.`,
+      list: data.map((r) => ({
+        name: r.display_name,
+        amount: formatInr(r.unallocated),
+        meta: [
+          `${formatCount(r.receipt_count)} receipt${Number(r.receipt_count) === 1 ? '' : 's'}`,
+          r.oldest_receipt ? `oldest ${formatDate(r.oldest_receipt)}` : null,
+          r.phone ? r.phone : 'no phone on file',
+        ].filter(Boolean).join(' · '),
+      })),
+      source: 'Unapplied receipts in the latest snapshot',
+    };
+  },
+
   async claim_blocked() {
     const { data, error } = await supabase
       .from('claims')
