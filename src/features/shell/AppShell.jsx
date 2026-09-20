@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
 import { partiesAgeingQuery, priorityListQuery } from '../../lib/queries.js';
-import { formatCount, formatDate } from '../../lib/format.js';
+import { formatCount, formatDate, formatInr } from '../../lib/format.js';
 import AmbientBackground from '../../components/AmbientBackground.jsx';
+import { readTheme, applyTheme } from '../../lib/theme.js';
 
 /** Every route in the spec. All of them are built. */
 const NAV = [
@@ -39,6 +40,16 @@ const TITLES = {
 
 export default function AppShell({ session }) {
   const location = useLocation();
+  const [theme, setTheme] = useState(() => (typeof document === 'undefined'
+    ? 'light'
+    : document.documentElement.getAttribute('data-theme') || readTheme()));
+
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    applyTheme(next);
+  }
+
   const [title, subtitle] = TITLES[location.pathname] ?? ['Neomed', ''];
 
   const { data: snapshot } = useQuery({
@@ -81,50 +92,100 @@ export default function AppShell({ session }) {
   return (
     <div className="flex min-h-screen">
       <AmbientBackground />
-      <nav className="sticky top-0 flex h-screen w-[168px] flex-none flex-col border-r border-hair bg-white/75 backdrop-blur-xl backdrop-saturate-150">
-        <div className="glass-sheen flex items-center gap-2 border-b border-hair px-3 py-3">
+      <nav className="panel sticky top-0 flex h-screen w-[196px] flex-none flex-col rounded-none border-y-0 border-l-0">
+        <div className="flex items-center gap-2 border-b border-hair px-3 py-[14px]">
           <Mark />
-          <div>
-            <div className="text-[13px] font-semibold leading-none tracking-[-0.01em]">Neomed</div>
-            <div className="mt-[2px] text-[8.5px] uppercase tracking-[0.13em] text-faint">Collections</div>
+          <div className="min-w-0">
+            <div className="truncate text-[13.5px] font-semibold leading-none tracking-[-0.01em]">Neomed</div>
+            <div className="mt-[3px] text-[8.5px] uppercase tracking-[0.15em] text-faint">Collections</div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-[6px]">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                [
-                  'flex h-[30px] w-full items-center justify-between gap-[6px] px-3 text-left text-[12.5px] transition-colors',
-                  isActive
-                    ? 'nav-glow bg-teal/[0.08] font-semibold text-teal-deep shadow-[inset_2px_0_0_var(--color-teal)]'
-                    : 'text-ink hover:bg-[#f2f6f8] hover:pl-[14px]',
-                ].join(' ')
-              }
-            >
-              <span className="truncate">{item.label}</span>
-              {counts[item.to] !== undefined && counts[item.to] !== null ? (
-                <span className="flex-none font-mono text-[9.5px] text-faint">
-                  {formatCount(counts[item.to])}
-                </span>
-              ) : null}
-            </NavLink>
+        <div className="flex-1 overflow-y-auto py-2">
+          {NAV.map((group) => (
+            <div key={group.section} className="mb-1">
+              <div className="px-3 pb-1 pt-2 text-[8.5px] uppercase tracking-[0.15em] text-faint">
+                {group.section}
+              </div>
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/'}
+                  className={({ isActive }) =>
+                    [
+                      'group relative mx-2 flex h-[32px] items-center gap-[9px] rounded-[4px] px-[9px] text-[12.5px] transition-colors',
+                      isActive
+                        ? 'nav-glow bg-teal/[0.12] font-semibold text-teal-deep'
+                        : 'text-body hover:bg-surface-3',
+                    ].join(' ')
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      {isActive ? (
+                        <span className="absolute inset-y-[6px] left-0 w-[2px] rounded-full bg-teal" />
+                      ) : null}
+                      <span className={isActive ? 'text-teal-deep' : 'text-faint'}>
+                        <Icon name={item.icon} />
+                      </span>
+                      <span className="truncate">{item.label}</span>
+                      {counts[item.to] !== undefined && counts[item.to] !== null ? (
+                        <span className="tnum ml-auto text-[9.5px] text-faint">
+                          {formatCount(counts[item.to])}
+                        </span>
+                      ) : null}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </div>
 
-        <div className="flex items-center gap-[7px] border-t border-hair px-3 py-[9px] text-[10.5px] text-mute">
-          <span className="grid h-[19px] w-[19px] flex-none place-items-center border border-hair text-[9.5px] font-semibold text-ink">
-            {initials(profile?.full_name ?? session?.user?.email)}
-          </span>
-          <span className="truncate">{profile?.full_name ?? session?.user?.email ?? 'Signed in'}</span>
+        {/* The book at a glance, so it is visible from wherever you are. */}
+        {snapshot ? (
+          <div className="mx-2 mb-2 rounded-[5px] border border-hair bg-surface/50 px-3 py-[10px]">
+            <div className="text-[8.5px] uppercase tracking-[0.14em] text-faint">Outstanding</div>
+            <div className="tnum mt-[3px] text-[17px] font-semibold leading-none">
+              {formatInr(snapshot.net_total)}
+            </div>
+            <div className="mt-[6px] text-[10px] text-mute">
+              {formatCount(snapshot.party_count)} parties · {formatCount(snapshot.bill_count)} bills
+            </div>
+          </div>
+        ) : null}
+
+        <div className="border-t border-hair px-3 py-[10px]">
+          <div className="flex items-center gap-[8px]">
+            <span className="grid h-[26px] w-[26px] flex-none place-items-center rounded-full bg-teal/15 text-[10px] font-semibold text-teal-deep">
+              {initials(profile?.full_name ?? session?.user?.email)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[12px] font-medium leading-tight">
+                {profile?.full_name ?? session?.user?.email ?? 'Signed in'}
+              </div>
+              <div className="truncate text-[10px] capitalize text-faint">{profile?.role ?? '—'}</div>
+            </div>
+          </div>
+
+          <div className="mt-[9px] grid grid-cols-2 gap-[6px]">
+            <button type="button" onClick={toggleTheme}
+                    className="flex items-center justify-center gap-[5px] rounded-[4px] border border-hair bg-surface/60 py-[6px] text-[11px] transition-colors hover:bg-surface-3">
+              {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+              {theme === 'dark' ? 'Light' : 'Dark'}
+            </button>
+            <button type="button" onClick={() => supabase.auth.signOut()}
+                    className="flex items-center justify-center gap-[5px] rounded-[4px] border border-hair bg-surface/60 py-[6px] text-[11px] transition-colors hover:border-age-3/50 hover:text-age-3">
+              <OutIcon />
+              Sign out
+            </button>
+          </div>
         </div>
       </nav>
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex flex-wrap items-center gap-[14px] border-b border-hair bg-white/[0.72] px-[18px] py-[9px] backdrop-blur-lg relative">
+        <header className="sticky top-0 z-30 flex flex-wrap items-center gap-[14px] border-b border-hair bg-surface/[0.72] px-[18px] py-[9px] backdrop-blur-lg relative">
           <TypedTitle text={title} />
           <div className="max-w-[46ch] text-[11.5px] text-mute text-pretty">{subtitle}</div>
           <div className="ml-auto flex items-center gap-[10px]">
@@ -208,6 +269,34 @@ function SnapshotBadge({ snapshot }) {
       <span className={`h-[6px] w-[6px] flex-none ${tone}`} />
       Marg {formatDate(snapshot.report_date)} · {ageDays === 0 ? 'today' : `${ageDays} days old`}
     </span>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+         strokeWidth="1.7" strokeLinecap="round" aria-hidden>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+         strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5" />
+    </svg>
+  );
+}
+
+function OutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+         strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M15 17l5-5-5-5M20 12H9M11 4H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5" />
+    </svg>
   );
 }
 

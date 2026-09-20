@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
 import { formatInr, formatCount, formatDate } from '../../lib/format.js';
+import { AFTER, invalidate } from '../../lib/cache.js';
 
 /**
  * Users and roles, the thresholds the rules read, the category defaults, and
  * the import history with its warnings.
  */
-export default function SettingsScreen() {
+export default function SettingsScreen({ session }) {
   const qc = useQueryClient();
 
   const { data: users } = useQuery({
@@ -67,7 +68,7 @@ export default function SettingsScreen() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries();
+      invalidate(qc, AFTER.settings);
       setDraft(null);
     },
   });
@@ -90,6 +91,10 @@ export default function SettingsScreen() {
 
   return (
     <div className="animate-screen-in grid gap-4 px-[18px] pb-[34px] pt-4">
+      <Section title="Your account">
+        <YourAccount session={session} />
+      </Section>
+
       <Section title="Team">
         <table className="w-full border-collapse text-[12px]">
           <thead>
@@ -132,7 +137,7 @@ export default function SettingsScreen() {
               type="number"
               value={draft ?? threshold}
               onChange={(e) => setDraft(e.target.value)}
-              className="tnum w-[130px] rounded-[2px] border border-hair bg-white px-[8px] py-[4px] text-right text-[12px]"
+              className="tnum w-[130px] rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-right text-[12px]"
             />
           </label>
           <button
@@ -253,7 +258,7 @@ function Targets({ users }) {
       );
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => invalidate(qc, AFTER.targets),
   });
 
   return (
@@ -302,6 +307,66 @@ function TargetRow({ user, existing, onSave }) {
         </button>
       </td>
     </tr>
+  );
+}
+
+/**
+ * The display name was seeded with a placeholder when the account was made,
+ * and a name nobody can correct is worse than no name at all — it is on every
+ * screen and in every activity log.
+ */
+function YourAccount({ session }) {
+  const qc = useQueryClient();
+  const { data: me } = useQuery({
+    queryKey: ['me', session?.user?.id],
+    enabled: Boolean(session?.user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('app_users').select('*').eq('id', session.user.id).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const [name, setName] = useState('');
+  const [saved, setSaved] = useState(false);
+  const current = me?.full_name ?? '';
+  const value = name || current;
+  const dirty = value.trim().length > 0 && value !== current;
+
+  async function save() {
+    const { error } = await supabase
+      .from('app_users').update({ full_name: value.trim() }).eq('id', session.user.id);
+    if (!error) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      qc.invalidateQueries({ queryKey: ['me'] });
+      qc.invalidateQueries({ queryKey: ['app-users'] });
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-end gap-3 px-[10px] py-2">
+      <label className="block">
+        <span className="kicker mb-1 block">Display name</span>
+        <input
+          value={value}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Your name"
+          className="w-[220px] rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-[12px]"
+        />
+      </label>
+      <label className="block">
+        <span className="kicker mb-1 block">Sign-in email</span>
+        <input value={session?.user?.email ?? ''} readOnly
+               className="w-[220px] rounded-[2px] border border-hair bg-surface-2 px-[8px] py-[4px] text-[12px] text-mute" />
+      </label>
+      <button type="button" className="btn btn-primary" disabled={!dirty} onClick={save}>Save</button>
+      {saved ? <span className="text-[11.5px] text-teal-deep">Saved</span> : null}
+      <p className="w-full max-w-[70ch] text-[11px] text-faint text-pretty">
+        This is the name shown in the sidebar and against every call, promise and claim you record.
+      </p>
+    </div>
   );
 }
 

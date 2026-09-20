@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
 import { partiesAgeingQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatDate } from '../../lib/format.js';
+import { AFTER, invalidate } from '../../lib/cache.js';
 
 /**
  * Claims, follow-ups and promises.
@@ -55,7 +56,7 @@ function ContactActions({ party, compact }) {
   }
   return (
     <span className="flex items-center gap-[5px]">
-      <a href={tel} className={`${cls} border-hair bg-white text-ink hover:bg-[#F2F6F8]`}>Call</a>
+      <a href={tel} className={`${cls} border-hair bg-surface text-ink hover:bg-surface-3`}>Call</a>
       {wa ? (
         <a
           href={wa}
@@ -90,7 +91,7 @@ function PhoneField({ party, onSaved }) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="mobile"
-        className="tnum w-[120px] rounded-[2px] border border-hair bg-white px-[6px] py-[3px] text-[11.5px]"
+        className="tnum w-[120px] rounded-[2px] border border-hair bg-surface px-[6px] py-[3px] text-[11.5px]"
       />
       <button
         type="button"
@@ -133,7 +134,7 @@ export function ClaimsScreen() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries();
+      invalidate(qc, AFTER.claim);
       setForm({ party_id: '', claim_type: 'expiry', claim_value: '', payment_held: '', pending_with: '' });
     },
   });
@@ -146,7 +147,7 @@ export function ClaimsScreen() {
         .eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => invalidate(qc, AFTER.claim),
   });
 
   // Grouped by who owes the internal action — the thing that unblocks money.
@@ -260,7 +261,7 @@ export function FollowupsScreen() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries();
+      invalidate(qc, AFTER.followup);
       setForm({ party_id: '', method: 'call', outcome: '', next_followup_date: '' });
     },
   });
@@ -270,7 +271,7 @@ export function FollowupsScreen() {
       const { error } = await supabase.from('followups').update({ closed: true }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => invalidate(qc, AFTER.followup),
   });
 
   const today = new Date().toISOString().slice(0, 10);
@@ -375,7 +376,7 @@ export function PromisesScreen() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries();
+      invalidate(qc, AFTER.promise);
       setForm({ party_id: '', due_date: '', promised_amount: '', is_pdc: false, cheque_no: '' });
     },
   });
@@ -388,7 +389,7 @@ export function PromisesScreen() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => invalidate(qc, AFTER.promise),
   });
 
   const groups = [
@@ -477,7 +478,7 @@ export function PromisesScreen() {
 /* shared                                                             */
 /* ================================================================== */
 
-const INPUT = 'rounded-[2px] border border-hair bg-white px-[8px] py-[4px] text-[12px]';
+const INPUT = 'rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-[12px]';
 
 function Screen({ children, intro, form, loading }) {
   return (
@@ -553,7 +554,7 @@ function PartyPicker({ parties, value, onChange }) {
     <Field label="Party">
       {chosen ? (
         <div className="flex items-center gap-2">
-          <span className="max-w-[220px] truncate rounded-[2px] border border-hair bg-white px-[8px] py-[4px] text-[12px]">
+          <span className="max-w-[220px] truncate rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-[12px]">
             {chosen.display_name}
           </span>
           <button type="button" onClick={() => { onChange(''); setQ(''); }} className="text-[11px] text-mute underline">change</button>
@@ -571,14 +572,14 @@ function PartyPicker({ parties, value, onChange }) {
           {/* Opens on focus, not only once something is typed — otherwise the
               field looks broken to anyone who does not know to start typing. */}
           {open && matches.length > 0 ? (
-            <div className="absolute z-20 mt-1 max-h-[220px] w-[280px] overflow-auto border border-hair bg-white shadow-lg">
+            <div className="absolute z-20 mt-1 max-h-[220px] w-[280px] overflow-auto border border-hair bg-surface shadow-lg">
               {matches.map((p) => (
                 <button
                   key={p.party_id}
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { onChange(p.party_id); setQ(''); setOpen(false); }}
-                  className="block w-full px-[8px] py-[5px] text-left text-[12px] hover:bg-[#F2F6F8]"
+                  className="block w-full px-[8px] py-[5px] text-left text-[12px] hover:bg-surface-3"
                 >
                   <span className="block truncate">{p.display_name}</span>
                   <span className="tnum block text-[10px] text-faint">{formatInr(p.current_outstanding)}</span>
@@ -587,7 +588,7 @@ function PartyPicker({ parties, value, onChange }) {
             </div>
           ) : null}
           {open && parties && matches.length === 0 ? (
-            <div className="absolute z-20 mt-1 w-[280px] border border-hair bg-white px-[8px] py-[6px] text-[11.5px] text-faint shadow-lg">
+            <div className="absolute z-20 mt-1 w-[280px] border border-hair bg-surface px-[8px] py-[6px] text-[11.5px] text-faint shadow-lg">
               No party matches "{q}".
             </div>
           ) : null}

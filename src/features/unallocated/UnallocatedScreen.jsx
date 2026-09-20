@@ -78,7 +78,7 @@ export default function UnallocatedScreen() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search parties…"
-          className="w-[240px] rounded-[2px] border border-hair bg-white px-[10px] py-[5px] text-[12.5px]"
+          className="w-[240px] rounded-[2px] border border-hair bg-surface px-[10px] py-[5px] text-[12.5px]"
         />
         <span className="tnum ml-auto text-[11.5px] text-mute">
           {formatCount(rows.length)} shown
@@ -102,7 +102,7 @@ export default function UnallocatedScreen() {
             {rows.map((r) => (
               <tr key={r.party_id}
                   onClick={() => setOpen(r)}
-                  className="cursor-pointer border-b border-rule last:border-b-0 hover:bg-[#F7FAFB]">
+                  className="cursor-pointer border-b border-rule last:border-b-0 hover:bg-surface-2">
                 <td className="px-[10px] py-[6px]">
                   <span className="font-medium">{r.display_name}</span>
                   {r.contact_person ? (
@@ -192,7 +192,7 @@ function BillsDrawer({ row, onClose }) {
   return (
     <Overlay onClose={onClose} label={row.display_name}>
       <aside className="overlay-panel overlay-drawer flex w-[min(720px,95vw)] flex-col border-l border-hair bg-canvas shadow-[0_0_44px_rgba(15,31,46,.28)]">
-        <header className="border-b border-hair bg-white/85 px-[18px] py-3 backdrop-blur">
+        <header className="border-b border-hair bg-surface/85 px-[18px] py-3 backdrop-blur">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <h2 className="truncate text-[16px] font-semibold tracking-[-0.015em]">{row.display_name}</h2>
@@ -217,7 +217,7 @@ function BillsDrawer({ row, onClose }) {
           {isLoading ? (
             <p className="text-[12px] text-mute">Loading bills…</p>
           ) : (
-            <div className="border border-hair bg-white">
+            <div className="border border-hair bg-surface">
               <table className="w-full border-collapse text-[11.5px]">
                 <thead>
                   <tr>
@@ -230,7 +230,7 @@ function BillsDrawer({ row, onClose }) {
                 <tbody>
                   {covered.map((b, i) => (
                     <tr key={`${b.bill_no}-${i}`}
-                        className={`border-t border-rule ${b.covers > 0 ? 'bg-[#F2FAF7]' : ''}`}>
+                        className={`border-t border-rule ${b.covers > 0 ? 'bg-teal/10' : ''}`}>
                       <td className="px-[9px] py-[5px] font-mono">{displayBillNo(b.bill_no)}</td>
                       <td className="px-[9px] py-[5px] font-mono text-mute">{formatDate(b.bill_date)}</td>
                       <td className="tnum px-[9px] py-[5px] text-right">{plain(b.bill_amount)}</td>
@@ -259,7 +259,7 @@ function BillsDrawer({ row, onClose }) {
 
 function Fig({ label, value, tone }) {
   return (
-    <div className="bg-white/85 px-3 py-2">
+    <div className="bg-surface/85 px-3 py-2">
       <div className="kicker">{label}</div>
       <div className="tnum mt-[2px] text-[14px] font-medium" style={{ color: tone ?? 'inherit' }}>{value}</div>
     </div>
@@ -268,7 +268,7 @@ function Fig({ label, value, tone }) {
 
 function Th2({ children, align = 'left' }) {
   return (
-    <th className="sticky top-0 border-b border-hair bg-white px-[9px] py-[6px] text-[9.5px] font-semibold uppercase tracking-[0.08em] text-mute"
+    <th className="sticky top-0 border-b border-hair bg-surface px-[9px] py-[6px] text-[9.5px] font-semibold uppercase tracking-[0.08em] text-mute"
         style={{ textAlign: align }}>{children}</th>
   );
 }
@@ -283,7 +283,7 @@ function Contact({ row }) {
   return (
     <span className="flex items-center gap-[5px]">
       <a href={`tel:${String(row.phone).replace(/[^\d+]/g, '')}`}
-         className="rounded-[2px] border border-hair bg-white px-[7px] py-[2px] text-[10.5px] text-ink no-underline hover:bg-[#F2F6F8]">
+         className="rounded-[2px] border border-hair bg-surface px-[7px] py-[2px] text-[10.5px] text-ink no-underline hover:bg-surface-3">
         Call
       </a>
       {wa ? (
@@ -298,7 +298,7 @@ function Contact({ row }) {
 
 function Th({ children, align = 'left', width }) {
   return (
-    <th className="sticky top-0 z-10 border-b border-hair bg-white/95 px-[10px] py-[7px] text-[10px] font-semibold uppercase tracking-[0.09em] text-mute backdrop-blur"
+    <th className="sticky top-0 z-10 border-b border-hair bg-surface/95 px-[10px] py-[7px] text-[10px] font-semibold uppercase tracking-[0.09em] text-mute backdrop-blur"
         style={{ textAlign: align, width }}>
       {children}
     </th>

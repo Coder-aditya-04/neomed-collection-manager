@@ -43,7 +43,7 @@ export default function LoginScreen() {
           autoComplete="username"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mb-[15px] w-full rounded-[2px] border border-hair bg-white px-[11px] py-[9px] text-[13.5px]"
+          className="mb-[15px] w-full rounded-[2px] border border-hair bg-surface px-[11px] py-[9px] text-[13.5px]"
         />
 
         <label htmlFor="password" className="mb-[5px] block text-[11px] uppercase tracking-[0.08em] text-mute">
@@ -56,7 +56,7 @@ export default function LoginScreen() {
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mb-[22px] w-full rounded-[2px] border border-hair bg-white px-[11px] py-[9px] text-[13.5px]"
+          className="mb-[22px] w-full rounded-[2px] border border-hair bg-surface px-[11px] py-[9px] text-[13.5px]"
         />
 
         {error ? <p className="mb-3 text-[12px] text-age-3">{error}</p> : null}

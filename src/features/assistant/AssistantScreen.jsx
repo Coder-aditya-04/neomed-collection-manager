@@ -65,7 +65,7 @@ export default function AssistantScreen() {
           {thread.map((m, i) =>
             m.role === 'user' ? (
               <div key={i} className="flex justify-end">
-                <div className="max-w-[70%] rounded-[3px] bg-ink px-3 py-2 text-[12.5px] text-white">{m.text}</div>
+                <div className="max-w-[70%] rounded-[3px] bg-ink px-3 py-2 text-[12.5px] text-onaccent">{m.text}</div>
               </div>
             ) : (
               <Answer key={i} answer={m.answer} routed={m.routed} />
@@ -83,7 +83,7 @@ export default function AssistantScreen() {
               key={c}
               type="button"
               onClick={() => ask(c)}
-              className="rounded-[2px] border border-hair bg-white px-[10px] py-[4px] text-[11.5px] text-[#3E4C58] transition-colors hover:border-teal hover:bg-teal/[0.06]"
+              className="rounded-[2px] border border-hair bg-surface px-[10px] py-[4px] text-[11.5px] text-body transition-colors hover:border-teal hover:bg-teal/[0.06]"
             >
               {c}
             </button>
@@ -100,7 +100,7 @@ export default function AssistantScreen() {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Ask about any party, bucket or bill in the current snapshot…"
-            className="flex-1 rounded-[2px] border border-hair bg-white px-[11px] py-[8px] text-[13px]"
+            className="flex-1 rounded-[2px] border border-hair bg-surface px-[11px] py-[8px] text-[13px]"
           />
           <button type="submit" className="btn btn-primary" disabled={busy || !draft.trim()}>
             Ask
@@ -227,7 +227,7 @@ function Kv({ rows }) {
   return (
     <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-px bg-hair">
       {rows.map((r) => (
-        <div key={r.k} className="bg-white/80 px-3 py-2">
+        <div key={r.k} className="bg-surface/80 px-3 py-2">
           <div className="kicker">{r.k}</div>
           <div className="tnum mt-[2px] text-[15px] font-medium">{r.v}</div>
         </div>
@@ -239,7 +239,7 @@ function Kv({ rows }) {
 function List({ items }) {
   if (!items?.length) return null;
   return (
-    <div className="mt-3 border border-hair bg-white">
+    <div className="mt-3 border border-hair bg-surface">
       {items.map((it, i) => (
         <div
           key={`${it.name}-${i}`}

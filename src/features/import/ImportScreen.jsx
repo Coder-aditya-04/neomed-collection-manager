@@ -61,7 +61,7 @@ export default function ImportScreen() {
             key={label}
             className={[
               'flex flex-1 flex-col gap-[2px] border-r border-hair px-[13px] py-[9px] last:border-r-0',
-              i === stepIndex ? 'bg-white shadow-[inset_0_-2px_0_var(--color-teal)]' : 'bg-[#f7f9fa]',
+              i === stepIndex ? 'bg-surface shadow-[inset_0_-2px_0_var(--color-teal)]' : 'bg-surface-2',
               i <= stepIndex ? 'opacity-100' : 'opacity-45',
             ].join(' ')}
             aria-current={i === stepIndex ? 'step' : undefined}
@@ -163,7 +163,7 @@ function Preview({ preview, onConfirm, onDiscard }) {
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-px bg-hair">
           {stats.map((s) => (
-            <div key={s.label} className="bg-white/[0.74] px-[14px] py-3">
+            <div key={s.label} className="bg-surface/75 px-[14px] py-3">
               <div className="kicker">{s.label}</div>
               <div className="mt-1 flex flex-wrap items-baseline gap-[7px]">
                 <span
@@ -433,7 +433,7 @@ function Result({ result, preview, onAgain }) {
 function Figure({ label, value, note, tone = 'ink' }) {
   const toneClass = { ink: 'text-ink', mute: 'text-mute', warn: 'text-age-2' }[tone];
   return (
-    <div className="bg-white/[0.74] px-[14px] py-3">
+    <div className="bg-surface/75 px-[14px] py-3">
       <div className="kicker">{label}</div>
       <div className={`tnum mt-1 text-[20px] font-medium tracking-[-0.03em] ${toneClass}`}>{value}</div>
       {note ? <div className="mt-[3px] text-[11px] text-mute text-pretty">{note}</div> : null}
@@ -444,7 +444,7 @@ function Figure({ label, value, note, tone = 'ink' }) {
 function Th({ children, align = 'left' }) {
   return (
     <th
-      className="sticky top-0 border-b border-hair bg-white/90 px-[10px] py-[7px] text-[10px] font-semibold uppercase tracking-[0.09em] text-mute backdrop-blur"
+      className="sticky top-0 border-b border-hair bg-surface/90 px-[10px] py-[7px] text-[10px] font-semibold uppercase tracking-[0.09em] text-mute backdrop-blur"
       style={{ textAlign: align }}
     >
       {children}

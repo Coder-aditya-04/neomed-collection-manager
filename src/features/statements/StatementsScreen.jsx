@@ -61,7 +61,7 @@ export default function StatementsScreen() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search parties…"
-          className="w-[220px] rounded-[2px] border border-hair bg-white px-[10px] py-[5px] text-[12.5px]"
+          className="w-[220px] rounded-[2px] border border-hair bg-surface px-[10px] py-[5px] text-[12.5px]"
         />
         <label className="block">
           <span className="kicker mb-1 block">Only above</span>
@@ -69,7 +69,7 @@ export default function StatementsScreen() {
             type="number"
             value={minAmount}
             onChange={(e) => setMinAmount(Number(e.target.value) || 0)}
-            className="tnum w-[110px] rounded-[2px] border border-hair bg-white px-[8px] py-[4px] text-right text-[12px]"
+            className="tnum w-[110px] rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-right text-[12px]"
           />
         </label>
         <button type="button" className="btn btn-secondary"
@@ -118,7 +118,7 @@ export default function StatementsScreen() {
           </thead>
           <tbody>
             {candidates.slice(0, 250).map((p) => (
-              <tr key={p.party_id} className="border-b border-rule last:border-b-0 hover:bg-[#F7FAFB]">
+              <tr key={p.party_id} className="border-b border-rule last:border-b-0 hover:bg-surface-2">
                 <td className="px-[10px] py-[6px]">
                   <input
                     type="checkbox"
@@ -211,7 +211,7 @@ function StatementActions({ party, snapshot, sent, onPreview, onSent }) {
   return (
     <span className="flex items-center gap-[5px]">
       <button type="button" onClick={show} disabled={busy}
-              className="rounded-[2px] border border-hair bg-white px-[8px] py-[2px] text-[11px] hover:bg-[#F2F6F8]">
+              className="rounded-[2px] border border-hair bg-surface px-[8px] py-[2px] text-[11px] hover:bg-surface-3">
         Statement
       </button>
       <button type="button" onClick={open} disabled={busy || !party.phone}
@@ -341,7 +341,7 @@ function PreviewDialog({ preview, onClose, onShared }) {
   return (
     <Overlay onClose={onClose} label="Statement">
       <div className="overlay-panel overlay-center flex max-h-[92vh] w-[min(860px,94vw)] flex-col border border-hair bg-canvas shadow-[0_0_50px_rgba(15,31,46,.3)]">
-        <div className="flex flex-wrap items-center gap-2 border-b border-hair bg-white px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-b border-hair bg-surface px-4 py-3">
           <h3 className="mr-auto truncate text-[14px] font-semibold">{preview.party.display_name}</h3>
           {canShareFiles ? (
             <button type="button" className="btn btn-primary px-3 py-[5px] text-[12px]"
@@ -375,7 +375,7 @@ function PreviewDialog({ preview, onClose, onShared }) {
           * repaints whole on every scroll; zoom reflows once and then scrolls
           * like ordinary content. `contain` keeps the work inside this box.
           */}
-        <div className="min-h-0 flex-1 overflow-auto bg-[#DDE4EA] p-5"
+        <div className="min-h-0 flex-1 overflow-auto bg-canvas p-5"
              style={{ contain: 'content' }}>
           <div
             className="mx-auto shadow-[0_2px_14px_rgba(15,31,46,.18)]"
@@ -391,7 +391,7 @@ function PreviewDialog({ preview, onClose, onShared }) {
           </div>
         </div>
 
-        <div className="border-t border-hair bg-white px-4 py-2 text-[11px] text-faint text-pretty">
+        <div className="border-t border-hair bg-surface px-4 py-2 text-[11px] text-faint text-pretty">
           {canShareFiles
             ? 'Send on WhatsApp opens your phone\'s share sheet with the statement attached — pick WhatsApp, pick the contact, send.'
             : 'On a computer, browsers will not hand a file to WhatsApp. Download the image and attach it, or open this page on your phone, where Send on WhatsApp attaches it directly. When printing, untick “Headers and footers” in the print dialog to drop the browser\'s own date and page stamp.'}
@@ -403,7 +403,7 @@ function PreviewDialog({ preview, onClose, onShared }) {
 
 function Th({ children, align = 'left', width }) {
   return (
-    <th className="sticky top-0 z-10 border-b border-hair bg-white/95 px-[10px] py-[7px] text-[10px] font-semibold uppercase tracking-[0.09em] text-mute backdrop-blur"
+    <th className="sticky top-0 z-10 border-b border-hair bg-surface/95 px-[10px] py-[7px] text-[10px] font-semibold uppercase tracking-[0.09em] text-mute backdrop-blur"
         style={{ textAlign: align, width }}>
       {children}
     </th>

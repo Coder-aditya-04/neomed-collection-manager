@@ -7,6 +7,7 @@ import { latestSnapshotQuery, partyBillsQuery, partyActivityQuery } from '../../
 import { formatInr, formatCount, formatAge, formatDate, formatCreditTerm } from '../../lib/format.js';
 import AgeingStrip, { bucketsOf, TermBadge, BUCKET_LABELS } from '../../components/AgeingStrip.jsx';
 import Overlay from '../../components/Overlay.jsx';
+import { AFTER, invalidate } from '../../lib/cache.js';
 
 /**
  * Party detail, as a drawer over the list — the list never navigates away, so
@@ -24,7 +25,7 @@ export default function PartyDrawer({ party, onClose }) {
   return (
     <Overlay onClose={onClose} label={party.display_name}>
       <aside className="overlay-panel overlay-drawer flex w-[min(560px,92vw)] flex-col border-l border-hair bg-canvas shadow-[0_0_40px_rgba(15,31,46,.22)]">
-        <header className="flex items-start gap-3 border-b border-hair bg-white/80 px-[18px] py-3 backdrop-blur">
+        <header className="flex items-start gap-3 border-b border-hair bg-surface/80 px-[18px] py-3 backdrop-blur">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[16px] font-semibold tracking-[-0.015em]">{party.display_name}</h2>
             <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -35,7 +36,7 @@ export default function PartyDrawer({ party, onClose }) {
                 </span>
               ) : null}
               {party.status !== 'active' ? (
-                <span className="rounded-[2px] border border-hair bg-white px-[7px] py-[2px] font-mono text-[9.5px] uppercase tracking-[0.04em] text-mute">
+                <span className="rounded-[2px] border border-hair bg-surface px-[7px] py-[2px] font-mono text-[9.5px] uppercase tracking-[0.04em] text-mute">
                   {party.status}
                 </span>
               ) : null}
@@ -54,11 +55,11 @@ export default function PartyDrawer({ party, onClose }) {
           </div>
 
           <Section title="Contact">
-            <Contact party={party} onSaved={() => queryClient.invalidateQueries()} />
+            <Contact party={party} onSaved={() => invalidate(queryClient, AFTER.partyDetails)} />
           </Section>
 
           <Section title="Assigned to">
-            <Assignment party={party} onSaved={() => queryClient.invalidateQueries()} />
+            <Assignment party={party} onSaved={() => invalidate(queryClient, AFTER.partyDetails)} />
           </Section>
 
           <Section title="Ageing">
@@ -105,7 +106,7 @@ export default function PartyDrawer({ party, onClose }) {
             {isLoading ? (
               <p className="text-[12px] text-mute">Loading bills…</p>
             ) : (
-              <div className="max-h-[320px] overflow-auto border border-hair bg-white">
+              <div className="max-h-[320px] overflow-auto border border-hair bg-surface">
                 <table className="w-full border-collapse text-[11.5px]">
                   <thead>
                     <tr>
@@ -145,8 +146,8 @@ export default function PartyDrawer({ party, onClose }) {
           </Section>
         </div>
 
-        <footer className="flex flex-wrap gap-2 border-t border-hair bg-white/90 px-[18px] py-3 backdrop-blur">
-          <LogFollowUp party={party} onSaved={() => queryClient.invalidateQueries()} />
+        <footer className="flex flex-wrap gap-2 border-t border-hair bg-surface/90 px-[18px] py-3 backdrop-blur">
+          <LogFollowUp party={party} onSaved={() => invalidate(queryClient, AFTER.followup)} />
           <button
             type="button"
             className="btn btn-secondary"
@@ -200,7 +201,7 @@ function Timeline({ activity, party }) {
 
   if (events.length === 0) {
     return (
-      <div className="border border-hair bg-white p-3">
+      <div className="border border-hair bg-surface p-3">
         <p className="text-[12px] text-mute text-pretty">
           Nothing recorded for {party.display_name} yet. Follow-ups, promises and claims appear here
           as they are logged.
@@ -219,7 +220,7 @@ function Timeline({ activity, party }) {
   };
 
   return (
-    <div className="border border-hair bg-white">
+    <div className="border border-hair bg-surface">
       {events.slice(0, 25).map((e, i) => (
         <div key={i} className="grid gap-[10px] border-b border-rule px-3 py-[9px] last:border-b-0"
              style={{ gridTemplateColumns: '58px 10px minmax(0,1fr)' }}>
@@ -273,19 +274,19 @@ function LogFollowUp({ party, onSaved }) {
         <label className="block">
           <span className="kicker mb-1 block">Method</span>
           <select value={method} onChange={(e) => setMethod(e.target.value)}
-                  className="rounded-[2px] border border-hair bg-white px-[8px] py-[4px] text-[12px]">
+                  className="rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-[12px]">
             {['call', 'visit', 'whatsapp', 'email'].map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </label>
         <label className="block flex-1 min-w-[180px]">
           <span className="kicker mb-1 block">Outcome</span>
           <input value={outcome} onChange={(e) => setOutcome(e.target.value)} placeholder="Promised Friday"
-                 className="w-full rounded-[2px] border border-hair bg-white px-[8px] py-[4px] text-[12px]" />
+                 className="w-full rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-[12px]" />
         </label>
         <label className="block">
           <span className="kicker mb-1 block">Next follow-up</span>
           <input type="date" value={next} onChange={(e) => setNext(e.target.value)}
-                 className="rounded-[2px] border border-hair bg-white px-[8px] py-[4px] text-[12px]" />
+                 className="rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-[12px]" />
         </label>
         <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
           {saving ? 'Saving…' : 'Save'}
@@ -303,7 +304,7 @@ function LogFollowUp({ party, onSaved }) {
  */
 function StopRule({ party }) {
   return (
-    <div className="border-l-[3px] border-l-[#C9A93E] bg-white p-3">
+    <div className="border-l-[3px] border-l-[#C9A93E] bg-surface p-3">
       <div className="kicker text-[#7A6410]">Cannot be aged</div>
       <p className="mt-1 text-[12.5px] text-pretty">
         {party.display_name} has no approved credit term, so there is no due date to measure
@@ -348,12 +349,12 @@ function Assignment({ party, onSaved }) {
   const current = team?.find((u) => u.id === party.responsible_person);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border border-hair bg-white p-3">
+    <div className="flex flex-wrap items-center gap-2 border border-hair bg-surface p-3">
       <select
         value={party.responsible_person ?? ''}
         onChange={(e) => assign(e.target.value)}
         disabled={saving}
-        className="rounded-[2px] border border-hair bg-white px-[8px] py-[4px] text-[12px]"
+        className="rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-[12px]"
       >
         <option value="">Nobody assigned</option>
         {(team ?? []).map((u) => (
@@ -392,7 +393,7 @@ function Contact({ party, onSaved }) {
   }
 
   return (
-    <div className="border border-hair bg-white p-3">
+    <div className="border border-hair bg-surface p-3">
       <div className="flex flex-wrap items-end gap-2">
         <label className="block">
           <span className="kicker mb-1 block">Mobile</span>
@@ -421,7 +422,7 @@ function Contact({ party, onSaved }) {
         <div className="mt-3 flex items-center gap-2">
           <a
             href={`tel:${String(value).replace(/[^\d+]/g, '')}`}
-            className="rounded-[2px] border border-hair bg-white px-[10px] py-[4px] text-[12px] no-underline text-ink hover:bg-[#F2F6F8]"
+            className="rounded-[2px] border border-hair bg-surface px-[10px] py-[4px] text-[12px] no-underline text-ink hover:bg-surface-3"
           >
             Call
           </a>
@@ -455,7 +456,7 @@ function Section({ title, children }) {
 
 function Fig({ label, value }) {
   return (
-    <div className="bg-white/80 px-3 py-2">
+    <div className="bg-surface/80 px-3 py-2">
       <div className="kicker">{label}</div>
       <div className="tnum mt-[2px] text-[17px] font-medium tracking-[-0.02em]">{value}</div>
     </div>
@@ -478,7 +479,7 @@ function Line({ label, value, strong, muted, tone }) {
 function Th({ children, align = 'left' }) {
   return (
     <th
-      className="sticky top-0 border-b border-hair bg-white px-[9px] py-[6px] text-[9.5px] font-semibold uppercase tracking-[0.08em] text-mute"
+      className="sticky top-0 border-b border-hair bg-surface px-[9px] py-[6px] text-[9.5px] font-semibold uppercase tracking-[0.08em] text-mute"
       style={{ textAlign: align }}
     >
       {children}

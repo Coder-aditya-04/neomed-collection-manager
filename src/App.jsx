@@ -43,7 +43,7 @@ export default function App() {
         <Route path="statements" element={<StatementsScreen />} />
         <Route path="recovery" element={<RecoveryScreen />} />
         <Route path="assistant" element={<AssistantScreen />} />
-        <Route path="settings" element={<SettingsScreen />} />
+        <Route path="settings" element={<SettingsScreen session={session} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

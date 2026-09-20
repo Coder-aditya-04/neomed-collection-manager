@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { partiesAgeingQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatAge, formatPct } from '../../lib/format.js';
 import { TermBadge } from '../../components/AgeingStrip.jsx';
+import { AFTER, PARTY_DERIVED, invalidate, patchParties } from '../../lib/cache.js';
 
 /**
  * The credit master.
@@ -70,8 +71,11 @@ export default function CreditMasterScreen() {
       if (error) throw error;
       return ids.length;
     },
-    onSuccess: (n) => {
-      queryClient.invalidateQueries();
+    onSuccess: (n, { ids, term }) => {
+      // Applied straight to the cached rows, so the table updates on the
+      // keystroke rather than after a round trip for 845 parties.
+      patchParties(queryClient, ids, { ...term, credit_source: 'approved' });
+      invalidate(queryClient, PARTY_DERIVED);
       flash(n === 1 ? 'Credit term saved — approved' : `Credit term applied to ${n} parties — approved`);
     },
     onError: (e) => flash(`Not saved: ${e.message}`),
@@ -93,8 +97,12 @@ export default function CreditMasterScreen() {
       if (error) throw error;
       return ids.length;
     },
-    onSuccess: (n) => {
-      queryClient.invalidateQueries();
+    onSuccess: (n, ids) => {
+      patchParties(queryClient, ids, {
+        credit_type: 'none', credit_days: null, cycle_submit_day: null,
+        cycle_pay_day: null, cycle_lag_months: 0, credit_source: 'not_set',
+      });
+      invalidate(queryClient, PARTY_DERIVED);
       flash(`Term cleared on ${n} ${n === 1 ? 'party' : 'parties'}`);
     },
     onError: (e) => flash(`Not saved: ${e.message}`),
@@ -136,7 +144,7 @@ export default function CreditMasterScreen() {
           value={query}
           onChange={(e) => { setQuery(e.target.value); setLimit(150); }}
           placeholder={`Search ${formatCount(owing.length)} parties…`}
-          className="w-[240px] rounded-[2px] border border-hair bg-white px-[10px] py-[5px] text-[12.5px]"
+          className="w-[240px] rounded-[2px] border border-hair bg-surface px-[10px] py-[5px] text-[12.5px]"
         />
         <label className="flex items-center gap-[6px] text-[12px]">
           <input type="checkbox" checked={onlyUnset} onChange={(e) => { setOnlyUnset(e.target.checked); setLimit(150); }} />
@@ -240,7 +248,7 @@ export default function CreditMasterScreen() {
       </div>
 
       {toast ? (
-        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-[3px] bg-ink px-4 py-2 text-[12.5px] text-white shadow-lg">
+        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-[3px] bg-ink px-4 py-2 text-[12.5px] text-onaccent shadow-lg">
           {toast}
         </div>
       ) : null}
@@ -254,7 +262,7 @@ function PartyRow({ party, index, checked, onCheck, onSave, onClear }) {
   const dirty = JSON.stringify(draft) !== JSON.stringify(draftFromParty(party));
 
   return (
-    <tr className="border-b border-rule last:border-b-0 hover:bg-[#F7FAFB]">
+    <tr className="border-b border-rule last:border-b-0 hover:bg-surface-2">
       <td className="px-[10px] py-[5px]">
         <input
           type="checkbox"
@@ -306,14 +314,14 @@ function PartyRow({ party, index, checked, onCheck, onSave, onClear }) {
  * without reaching for the mouse.
  */
 function TermEditor({ draft, onChange, compact }) {
-  const input = `rounded-[2px] border border-hair bg-white px-[6px] py-[3px] text-[11.5px] tnum ${compact ? '' : 'mt-1'}`;
+  const input = `rounded-[2px] border border-hair bg-surface px-[6px] py-[3px] text-[11.5px] tnum ${compact ? '' : 'mt-1'}`;
 
   return (
     <div className="flex items-center gap-[6px]">
       <select
         value={draft.credit_type}
         onChange={(e) => onChange({ ...draft, credit_type: e.target.value })}
-        className="rounded-[2px] border border-hair bg-white px-[6px] py-[3px] text-[11.5px]"
+        className="rounded-[2px] border border-hair bg-surface px-[6px] py-[3px] text-[11.5px]"
         aria-label="Credit model"
       >
         <option value="days">Days</option>
@@ -362,7 +370,7 @@ function TermEditor({ draft, onChange, compact }) {
           <select
             value={draft.cycle_lag_months ?? 0}
             onChange={(e) => onChange({ ...draft, cycle_lag_months: Number(e.target.value) })}
-            className="rounded-[2px] border border-hair bg-white px-[5px] py-[3px] text-[11.5px]"
+            className="rounded-[2px] border border-hair bg-surface px-[5px] py-[3px] text-[11.5px]"
             aria-label="Which month payment lands"
           >
             <option value={0}>same month</option>
@@ -424,7 +432,7 @@ function inRange(n) {
 function Th({ children, align = 'left', width }) {
   return (
     <th
-      className="sticky top-0 z-10 border-b border-hair bg-white/95 px-[10px] py-[7px] text-[10px] font-semibold uppercase tracking-[0.09em] text-mute backdrop-blur"
+      className="sticky top-0 z-10 border-b border-hair bg-surface/95 px-[10px] py-[7px] text-[10px] font-semibold uppercase tracking-[0.09em] text-mute backdrop-blur"
       style={{ textAlign: align, width }}
     >
       {children}

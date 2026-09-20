@@ -5,15 +5,30 @@
  * (Neomed dashboard UI specifications/Neomed Collection Manager.dc.html).
  * The _ds "Industry" kit in that folder is a different, unused direction.
  */
+/*
+ * Tokens, not colours, from here down.
+ *
+ * Every surface, rule and shade of text is named by the job it does, so the
+ * dark theme is a matter of redefining eleven variables rather than hunting
+ * hex codes through forty files. The ageing ramp and the claim violet keep
+ * their values in both themes: those colours carry meaning, and a bucket that
+ * changes hue between themes would have to be re-learnt.
+ */
 @theme {
   --color-ink: #0f1f2e;
+  --color-body: #3e4c58;
   --color-canvas: #edf1f4;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7fafb;
+  --color-surface-3: #f2f6f8;
   --color-hair: #dce4ea;
   --color-teal: #00857a;
   --color-teal-deep: #00655d;
   --color-mute: #5c6b78;
   --color-faint: #8a98a4;
   --color-rule: #eff2f5;
+  /* Text that sits on a filled accent — white in both themes. */
+  --color-onaccent: #ffffff;
 
   /* The ageing ramp: within terms -> 1-30 -> 31-60 -> 60+ */
   --color-age-0: #14958a;
@@ -29,9 +44,51 @@
   --ease-dc: cubic-bezier(0.22, 0.75, 0.3, 1);
 }
 
+/*
+ * The dark theme. Not an inversion — a night sky with the same green on it.
+ * Surfaces climb from the canvas rather than falling away from white, and the
+ * teal lifts to stay legible against them.
+ */
+:root[data-theme="dark"] {
+  --color-ink: #e8eef4;
+  --color-body: #b4c2cf;
+  --color-canvas: #0b1220;
+  --color-surface: #111a2b;
+  --color-surface-2: #162133;
+  --color-surface-3: #1b2739;
+  --color-hair: #25344b;
+  --color-teal: #19a396;
+  --color-teal-deep: #4fd1c5;
+  --color-mute: #93a5b6;
+  --color-faint: #6f8294;
+  --color-rule: #1c2839;
+}
+
 @layer base {
   html {
     color-scheme: light;
+  }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  :root {
+    --grid-line: rgba(15, 31, 46, 0.055);
+    --glass-a: rgba(255, 255, 255, 0.62);
+    --glass-b: rgba(255, 255, 255, 0.46);
+    --glass-c: rgba(255, 255, 255, 0.56);
+    --glass-edge: rgba(255, 255, 255, 0.55);
+    --glass-top: rgba(255, 255, 255, 0.9);
+    --glass-inner: rgba(255, 255, 255, 0.22);
+  }
+  :root[data-theme="dark"] {
+    --grid-line: rgba(160, 200, 230, 0.05);
+    --glass-a: rgba(24, 36, 55, 0.72);
+    --glass-b: rgba(17, 26, 43, 0.58);
+    --glass-c: rgba(22, 33, 51, 0.66);
+    --glass-edge: rgba(126, 160, 190, 0.16);
+    --glass-top: rgba(190, 215, 235, 0.12);
+    --glass-inner: rgba(190, 215, 235, 0.05);
   }
 
   body {
@@ -55,8 +112,8 @@
     z-index: -1;
     pointer-events: none;
     background:
-      repeating-linear-gradient(to right, rgba(15, 31, 46, 0.055) 0 1px, transparent 1px 34px),
-      repeating-linear-gradient(to bottom, rgba(15, 31, 46, 0.055) 0 1px, transparent 1px 34px);
+      repeating-linear-gradient(to right, var(--grid-line) 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(to bottom, var(--grid-line) 0 1px, transparent 1px 34px);
   }
 
   /*
@@ -105,13 +162,13 @@
     height: 11px;
   }
   ::-webkit-scrollbar-thumb {
-    background: #c4d0d9;
+    background: var(--color-hair);
     border: 3px solid transparent;
     background-clip: content-box;
     border-radius: 9px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #a8b7c2;
+    background: var(--color-mute);
     background-clip: content-box;
   }
 }
@@ -138,18 +195,13 @@
      * expensive half — at 20px a long table scrolling inside re-blurs the
      * backdrop every frame.
      */
-    background: linear-gradient(
-      152deg,
-      rgba(255, 255, 255, 0.62) 0%,
-      rgba(255, 255, 255, 0.46) 48%,
-      rgba(255, 255, 255, 0.56) 100%
-    );
+    background: linear-gradient(152deg, var(--glass-a) 0%, var(--glass-b) 48%, var(--glass-c) 100%);
     backdrop-filter: blur(14px) saturate(1.9) brightness(1.06);
     -webkit-backdrop-filter: blur(14px) saturate(1.9) brightness(1.06);
-    border: 1px solid rgba(255, 255, 255, 0.55);
+    border: 1px solid var(--glass-edge);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+      inset 0 1px 0 var(--glass-top),
+      inset 0 0 0 1px var(--glass-inner),
       inset 0 -14px 24px -22px rgba(0, 133, 122, 0.22),
       0 1px 1px rgba(15, 31, 46, 0.03),
       0 14px 34px -24px rgba(15, 31, 46, 0.3);
@@ -317,11 +369,11 @@
   }
   .btn-secondary {
     border: 1px solid var(--color-hair);
-    background: #fff;
+    background: var(--color-surface);
     color: var(--color-ink);
   }
   .btn-secondary:hover:not(:disabled) {
-    background: #f2f6f8;
+    background: var(--color-surface-3);
   }
   .btn:disabled {
     opacity: 0.45;

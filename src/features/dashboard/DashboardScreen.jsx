@@ -102,7 +102,7 @@ export default function DashboardScreen() {
         {judgeable > 0 ? (
           <AgeingStripLarge buckets={buckets} />
         ) : (
-          <div className="border-l-[3px] border-l-[#C9A93E] bg-white p-3">
+          <div className="border-l-[3px] border-l-[#C9A93E] bg-surface p-3">
             <div className="kicker text-[#7A6410]">No strip to draw yet</div>
             <p className="mt-1 max-w-[80ch] text-[12.5px] text-pretty">
               Not one party has an approved credit term, so there is no due date to measure any of
@@ -155,13 +155,13 @@ export default function DashboardScreen() {
                 className="grid items-start gap-3 border-b border-rule px-4 pb-3 pt-[11px] last:border-b-0"
                 style={{ gridTemplateColumns: '20px minmax(0,1fr) 110px' }}
               >
-                <span className="tnum pt-px text-right text-[14px] font-medium text-[#B4C0C9]">{i + 1}</span>
+                <span className="tnum pt-px text-right text-[14px] font-medium text-faint">{i + 1}</span>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[13.5px] font-semibold">{p.display_name}</span>
                     <TermBadge row={{ ...p, credit_source: p.term_is_assumed ? 'category_default' : 'approved' }} />
                   </div>
-                  <p className="mt-[3px] max-w-[78ch] text-[12px] text-[#3E4C58] text-pretty">{p.reason}</p>
+                  <p className="mt-[3px] max-w-[78ch] text-[12px] text-body text-pretty">{p.reason}</p>
                   <div className="mt-[7px] w-[150px]">
                     <AgeingStrip
                       buckets={[p.within_terms, p.over_1_30, p.over_31_60, p.over_60].map(Number)}
@@ -201,7 +201,7 @@ export default function DashboardScreen() {
                 color="#B4C0C9"
               />
               {concentration.smallCount > 0 ? (
-                <p className="mt-3 border-t border-hair pt-[10px] text-[11.5px] text-[#3E4C58] text-pretty">
+                <p className="mt-3 border-t border-hair pt-[10px] text-[11.5px] text-body text-pretty">
                   {formatCount(concentration.smallCount)} parties owe under ₹10,000 each —{' '}
                   <span className="tnum font-medium">{formatInr(concentration.smallValue)}</span>{' '}
                   between them, {formatPct(concentration.smallValue, concentration.total)} of the
@@ -239,7 +239,7 @@ export default function DashboardScreen() {
 
 function Figure({ label, value, note, color }) {
   return (
-    <div className="bg-white/[0.62] px-[14px] pb-[13px] pt-3 backdrop-blur-sm transition-colors duration-200 hover:bg-white/80">
+    <div className="bg-surface/60 px-[14px] pb-[13px] pt-3 backdrop-blur-sm transition-colors duration-200 hover:bg-surface/80">
       <div className="kicker">{label}</div>
       <div
         className="tnum mt-1 whitespace-nowrap text-[26px] font-medium leading-[1.1] tracking-[-0.03em]"
@@ -257,7 +257,7 @@ function Bar({ label, value, total, color }) {
   return (
     <div className="mb-[10px]">
       <div className="mb-1 flex items-baseline justify-between gap-2 text-[11.5px]">
-        <span className="text-[#3E4C58]">{label}</span>
+        <span className="text-body">{label}</span>
         <span className="tnum whitespace-nowrap font-medium">
           {formatInr(value)} · {Math.round(pct)}%
         </span>

@@ -77,7 +77,7 @@ export function AgeingStripLarge({ buckets, bills }) {
         {(buckets ?? []).map((v, i) => (
           <div
             key={i}
-            className="relative min-w-[3px] border border-[rgba(15,31,46,.16)] bg-white/50 p-[2px] shadow-[inset_0_1px_2px_rgba(15,31,46,.08)]"
+            className="relative min-w-[3px] border border-[rgba(15,31,46,.16)] bg-surface/50 p-[2px] shadow-[inset_0_1px_2px_rgba(15,31,46,.08)]"
             style={{ flexGrow: Math.max((Math.abs(v) / (total || 1)) * 100, 0.6), flexBasis: 0 }}
           >
             <div
@@ -110,7 +110,7 @@ export function TermBadge({ row }) {
 
   if (!row || row.credit_source === 'not_set') {
     return (
-      <span className={`${base} border border-[#C4D0D9] border-l-[3px] border-l-[#8A98A4] bg-[#F0F3F6] text-[#4A5A68]`}>
+      <span className={`${base} border border-hair border-l-[3px] border-l-[#8A98A4] bg-[#F0F3F6] text-[#4A5A68]`}>
         Term not set
       </span>
     );
@@ -118,7 +118,7 @@ export function TermBadge({ row }) {
   const text = termText(row);
   if (row.credit_source === 'category_default') {
     return (
-      <span className={`${base} border border-dashed border-[#C9A93E] bg-white text-[#7A6410]`} title="A category default, not an approved term">
+      <span className={`${base} border border-dashed border-[#C9A93E] bg-surface text-[#7A6410]`} title="A category default, not an approved term">
         {text} · assumed
       </span>
     );

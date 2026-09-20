@@ -107,7 +107,7 @@ export default function PartiesScreen() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search parties…"
-          className="w-[230px] rounded-[2px] border border-hair bg-white px-[10px] py-[5px] text-[12.5px]"
+          className="w-[230px] rounded-[2px] border border-hair bg-surface px-[10px] py-[5px] text-[12.5px]"
         />
         {FILTERS.map(([id, label]) => (
           <button
@@ -117,8 +117,8 @@ export default function PartiesScreen() {
             className={[
               'rounded-[2px] border px-[10px] py-[4px] text-[11.5px] transition-colors',
               filter === id
-                ? 'border-teal bg-teal font-semibold text-white'
-                : 'border-hair bg-white text-[#3E4C58] hover:border-teal',
+                ? 'border-teal bg-teal font-semibold text-onaccent'
+                : 'border-hair bg-surface text-body hover:border-teal',
             ].join(' ')}
           >
             {label}
@@ -131,7 +131,7 @@ export default function PartiesScreen() {
 
       <div className="panel flex min-h-0 flex-1 flex-col">
         <div
-          className="grid border-b border-hair bg-white/90 px-3 py-[7px] text-[10px] font-semibold uppercase tracking-[0.09em] text-mute"
+          className="grid border-b border-hair bg-surface/90 px-3 py-[7px] text-[10px] font-semibold uppercase tracking-[0.09em] text-mute"
           style={{ gridTemplateColumns: GRID, gap: 12 }}
         >
           {COLUMNS.map((c) => (
@@ -214,7 +214,7 @@ function Row({ party, top, onOpen, selected }) {
         }
       }}
       className={[
-        'absolute left-0 grid w-full cursor-pointer items-center border-b border-rule px-3 text-[12px] transition-colors hover:bg-[#F4F8FA]',
+        'absolute left-0 grid w-full cursor-pointer items-center border-b border-rule px-3 text-[12px] transition-colors hover:bg-surface-2',
         selected ? 'bg-[rgba(0,133,122,.06)]' : '',
         party.is_credit_balance ? 'bg-[rgba(109,91,184,.045)] shadow-[inset_3px_0_0_var(--color-claim)]' : '',
       ].join(' ')}
