@@ -86,9 +86,12 @@ alter table parties add column if not exists contact_person text;
 -- -------------------------------------------------------------------
 -- v_latest_snapshot
 -- -------------------------------------------------------------------
-drop view if exists v_portfolio_ageing;
-drop view if exists v_party_ageing;
-drop view if exists v_latest_snapshot;
+-- CASCADE because later migrations build views on top of these, and a
+-- column cannot be added to a view in place. Everything dropped here is
+-- recreated by the migration that owns it, further down the same run.
+drop view if exists v_portfolio_ageing cascade;
+drop view if exists v_party_ageing cascade;
+drop view if exists v_latest_snapshot cascade;
 
 create view v_latest_snapshot as
   select *
@@ -151,6 +154,7 @@ scaled as (
     p.category,
     p.phone,
     p.contact_person,
+    p.responsible_person,
     p.status,
     p.credit_type,
     p.credit_source,
@@ -186,6 +190,7 @@ select
   category,
   phone,
   contact_person,
+  responsible_person,
   status,
   credit_type,
   credit_source,

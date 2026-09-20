@@ -226,6 +226,68 @@ export function synthesiseBillNo(billDateIso, billAmount) {
   return `*~${d}~${a}`;
 }
 
+
+/* ------------------------------------------------------------------ */
+/* report date                                                         */
+/* ------------------------------------------------------------------ */
+
+const MONTH_RE = '(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)';
+
+/**
+ * Work out which day an export represents.
+ *
+ * Marg writes no "as on" date into the file, so the filename is the only
+ * statement of intent — and these arrive as "outstanding_10 sep.xls", with
+ * no year at all. The year is taken from the bills themselves.
+ *
+ * The "Days" column is deliberately NOT used. It is computed when the file is
+ * exported, not for the day it represents, so a back-dated report run today
+ * yields today's date from it. The reference set was exported on 17 Sep with
+ * as-on filters of 10, 12 and 15 Sep; reading Days would have stamped all
+ * three with the same date and destroyed the ordering the diff depends on.
+ *
+ * @param {string} fileName
+ * @param {string[]} billDates  ISO dates seen in the file, for the year and a sanity check
+ */
+export function inferReportDate(fileName, billDates = []) {
+  const text = String(fileName ?? '').toUpperCase();
+  const sorted = [...billDates].filter(Boolean).sort();
+  // The newest date is often a stray post-dated bill, so the year comes from
+  // the bulk of the file rather than from its single furthest row.
+  const anchor = sorted.length ? sorted[Math.floor(sorted.length * 0.98)] : null;
+
+  const m =
+    new RegExp(`(\\d{1,2})[_\\-\\s]*${MONTH_RE}[A-Z]*[_\\-\\s]*(\\d{4}|\\d{2})?`).exec(text) ||
+    new RegExp(`${MONTH_RE}[A-Z]*[_\\-\\s]*(\\d{1,2})[_\\-\\s]*(\\d{4}|\\d{2})?`).exec(text);
+
+  if (m) {
+    let day, month, year;
+    if (/^\d/.test(m[1])) {
+      day = Number.parseInt(m[1], 10);
+      month = MONTHS[m[2].slice(0, 3).toLowerCase()];
+      year = m[3];
+    } else {
+      month = MONTHS[m[1].slice(0, 3).toLowerCase()];
+      day = Number.parseInt(m[2], 10);
+      year = m[3];
+    }
+    if (month && day >= 1 && day <= 31) {
+      let y;
+      if (year) {
+        y = Number.parseInt(year, 10);
+        if (year.length === 2) y += y < 70 ? 2000 : 1900;
+      } else {
+        y = anchor ? Number.parseInt(anchor.slice(0, 4), 10) : new Date().getFullYear();
+      }
+      return toIso(y, month, day);
+    }
+  }
+
+  // Nothing readable in the name: the last day the file has bills for is the
+  // closest honest answer.
+  return anchor ?? new Date().toISOString().slice(0, 10);
+}
+
 /* ------------------------------------------------------------------ */
 /* row classification                                                  */
 /* ------------------------------------------------------------------ */
@@ -250,7 +312,6 @@ export function classifyRow(row) {
  * @param {{reportDate: string}} opts ISO date the export represents
  */
 export function parseMargRows(rows, opts = {}) {
-  const reportDate = opts.reportDate ?? null;
   const warnings = [];
 
   if (!Array.isArray(rows) || rows.length <= FIRST_DATA_ROW_INDEX) {
@@ -262,6 +323,33 @@ export function parseMargRows(rows, opts = {}) {
   }
 
   verifyHeaderRow(rows[HEADER_ROW_INDEX], warnings);
+
+  // The date has to be known before bills are read, because bill age is
+  // measured against it. When it is not supplied it is inferred from the
+  // file name and the bill dates inside.
+  const billDates = [];
+  for (let i = FIRST_DATA_ROW_INDEX; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || classifyRow(row) !== 'bill') continue;
+    const d = parseMargDate(row[COLUMNS.BILL_DATE]);
+    if (d) billDates.push(d);
+  }
+  const reportDate = opts.reportDate ?? inferReportDate(opts.fileName ?? '', billDates);
+
+  const newestBill = billDates.length ? [...billDates].sort().at(-1) : null;
+  if (newestBill && newestBill > reportDate) {
+    warnings.push({
+      warning_type: 'bill_dated_after_report',
+      party_name: null,
+      detail: {
+        report_date: reportDate,
+        newest_bill_date: newestBill,
+        message:
+          `The file carries a bill dated ${newestBill}, after the report date ${reportDate}. ` +
+          'Usually a post-dated entry; check the report date is right.',
+      },
+    });
+  }
 
   const parties = [];
   let current = null;

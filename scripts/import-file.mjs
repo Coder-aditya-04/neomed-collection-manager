@@ -47,21 +47,13 @@ async function rest(path, { method = 'GET', body, prefer } = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-function inferReportDate(fileName) {
-  const m = /(\d{1,2})[_\-\s]?([A-Za-z]{3})[_\-\s]?(\d{2,4})/.exec(fileName);
-  const months = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
-  if (!m || !months[m[2].toLowerCase()]) return new Date().toISOString().slice(0, 10);
-  let y = Number.parseInt(m[3], 10);
-  if (m[3].length === 2) y += y < 70 ? 2000 : 1900;
-  return `${y}-${String(months[m[2].toLowerCase()]).padStart(2, '0')}-${String(Number(m[1])).padStart(2, '0')}`;
-}
-
 const buf = readFileSync(FILE);
-const reportDate = inferReportDate(basename(FILE));
+// The parser settles the report date itself, from the file name plus the bill
+// dates inside it. Marg writes no "as on" date into the export.
 const parsed = parseMargWorkbook(
   buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
   XLSX,
-  { reportDate }
+  { fileName: basename(FILE) }
 );
 
 console.log(`file        ${basename(FILE)}`);
