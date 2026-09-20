@@ -222,12 +222,20 @@ function StatementActions({ party, snapshot, sent, onPreview, onSent }) {
   );
 }
 
-const STATEMENT_BILL_LIMIT = 60;
+/*
+ * Every open bill goes on the statement, however many there are.
+ *
+ * An earlier version stopped at 60 to keep it short, which was the wrong
+ * instinct: the party is reconciling this against their own ledger, and a
+ * statement that silently omits 326 bills cannot be reconciled at all. Marg's
+ * own report lists them all, so this does too. The cap that remains is a
+ * guard against a runaway query, not an editorial choice.
+ */
+const STATEMENT_BILL_LIMIT = 2000;
 
 /**
  * Credit notes carry a negative balance and belong on a statement — leaving
- * them out would overstate what is owed. Only the oldest are listed, since a
- * statement running to four pages does not get read.
+ * them out would overstate what is owed.
  */
 async function loadBills(partyId, snapshotId) {
   if (!snapshotId) return { bills: [], truncated: 0 };
@@ -326,7 +334,11 @@ function PreviewDialog({ preview, onClose, onShared }) {
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(
-      `<!doctype html><html><head><title>${preview.party.display_name}</title>` +
+      // An empty title keeps the browser from stamping the party's name into
+      // its own print header on every page. The date and page number are the
+      // browser's and can only be removed by the person printing, so the
+      // dialog says so.
+      `<!doctype html><html><head><title> </title>` +
       '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">' +
       '<style>@page{size:A4;margin:12mm}body{margin:0}</style></head><body>' +
       docRef.current.outerHTML +
@@ -392,7 +404,7 @@ function PreviewDialog({ preview, onClose, onShared }) {
         <div className="border-t border-hair bg-white px-4 py-2 text-[11px] text-faint text-pretty">
           {canShareFiles
             ? 'Send on WhatsApp opens your phone\'s share sheet with the statement attached — pick WhatsApp, pick the contact, send.'
-            : 'On a computer, browsers will not hand a file to WhatsApp. Download the image and attach it, or open this page on your phone, where Send on WhatsApp attaches it directly.'}
+            : 'On a computer, browsers will not hand a file to WhatsApp. Download the image and attach it, or open this page on your phone, where Send on WhatsApp attaches it directly. When printing, untick “Headers and footers” in the print dialog to drop the browser\'s own date and page stamp.'}
         </div>
       </div>
     </>

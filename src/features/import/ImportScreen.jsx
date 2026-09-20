@@ -345,6 +345,7 @@ function Running({ progress, preview }) {
     progress.total > 0 ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0;
   const phaseLabel = {
     archiving: 'Archiving the original file',
+    deriving: 'Working out what moved since the last file',
     snapshot: 'Creating the snapshot',
     parties: 'Writing parties',
     bills: 'Writing bills',
@@ -390,6 +391,28 @@ function Result({ result, preview, onAgain }) {
         <Figure label="Net total" value={formatInr(t.netTotal)} note="the figure Marg shows the owner" />
         <Figure label="Warnings raised" value={formatCount(preview.warnings.length)} note="visible on this snapshot" />
       </div>
+
+      {result?.derived ? (
+        result.derived.error ? (
+          <p className="mt-3 max-w-[80ch] text-[12px] text-age-2 text-pretty">
+            The snapshot is saved, but working out what moved since the last file failed:{' '}
+            {result.derived.error}. Nothing is lost — run{' '}
+            <code className="font-mono">fn_diff_latest()</code> again when convenient.
+          </p>
+        ) : (
+          <p className="mt-3 max-w-[80ch] text-[12px] text-mute text-pretty">
+            Comparing this file with the previous one found{' '}
+            <span className="tnum font-medium">{formatCount(result.derived.events)}</span> payment
+            events, refreshed{' '}
+            <span className="tnum font-medium">{formatCount(result.derived.profiles)}</span> party
+            profiles
+            {result.derived.promises > 0
+              ? ` and closed ${result.derived.promises} promise(s) against money that actually arrived`
+              : ''}
+            .
+          </p>
+        )
+      ) : null}
 
       {!result?.storagePath ? (
         <p className="mt-3 max-w-[80ch] text-[12px] text-age-2 text-pretty">

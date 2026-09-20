@@ -158,8 +158,44 @@ export async function commitImport(preview, { onProgress = () => {} } = {}) {
   onProgress({ phase: 'warnings', done: 0, total: parsed.warnings.length });
   await insertWarnings(parsed.warnings, snapshot.id, partyIds, storagePath);
 
+  onProgress({ phase: 'deriving', done: 0, total: 1 });
+  const derived = await deriveHistory();
+
   onProgress({ phase: 'done', done: 1, total: 1 });
-  return { snapshot, storagePath };
+  return { snapshot, storagePath, derived };
+}
+
+/**
+ * Work out what moved, now that there is a newer file to compare against.
+ *
+ * This used to be three SQL statements someone had to remember to run after
+ * every import. Forgetting them did not break anything visibly — it just
+ * meant the payment history quietly stopped growing, which is the worst kind
+ * of failure: silent, and only noticed weeks later when the behaviour
+ * ratings are still empty.
+ *
+ * A failure here must not fail the import. The snapshot is already written
+ * and is the valuable part; the derivation can be re-run at any time because
+ * all three functions are idempotent.
+ */
+async function deriveHistory() {
+  const out = { events: 0, profiles: 0, promises: 0, error: null };
+  try {
+    const { data: events, error: e1 } = await supabase.rpc('fn_diff_latest');
+    if (e1) throw e1;
+    out.events = events ?? 0;
+
+    const { data: profiles, error: e2 } = await supabase.rpc('fn_compute_profiles');
+    if (e2) throw e2;
+    out.profiles = profiles ?? 0;
+
+    const { data: promises, error: e3 } = await supabase.rpc('fn_settle_promises', { p_grace_days: 3 });
+    if (e3) throw e3;
+    out.promises = promises ?? 0;
+  } catch (e) {
+    out.error = e.message ?? String(e);
+  }
+  return out;
 }
 
 /**

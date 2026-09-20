@@ -20,7 +20,7 @@ async function main() {
   const party = parties[Number(process.env.PARTY_INDEX ?? 0)];
   const bills = await q(
     `bills?select=bill_no,bill_date,balance,bill_amount,received,bill_age_days` +
-    `&party_id=eq.${party.party_id}&snapshot_id=eq.${snap.id}&order=bill_date.asc&limit=60`
+    `&party_id=eq.${party.party_id}&snapshot_id=eq.${snap.id}&order=bill_date.asc&limit=2000`
   );
 
   process.stdout.write(renderToStaticMarkup(
