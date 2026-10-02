@@ -279,7 +279,7 @@ const HANDLERS = {
         name: p.display_name,
         amount: formatInr(p.current_outstanding),
         meta: p.reason,
-        buckets: [p.within_terms, p.over_1_30, p.over_31_60, p.over_60].map(num),
+        buckets: bucketsFrom(p),
       })),
       source: 'Priority ranking · claim-blocked, disputed and term-less parties excluded',
     };
@@ -555,7 +555,10 @@ function toListItem(p) {
 }
 
 function bucketsFrom(r) {
-  return [num(r.within_terms), num(r.over_1_30), num(r.over_31_60), num(r.over_60)];
+  return [
+    num(r.within_terms), num(r.over_1_30), num(r.over_31_60), num(r.over_61_90),
+    num(r.over_91_120), num(r.over_121_180), num(r.over_180),
+  ];
 }
 
 function num(v) {

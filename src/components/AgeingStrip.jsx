@@ -1,18 +1,65 @@
 import { formatInr, formatPct } from '../lib/format.js';
 
-/** within terms · 1-30 over · 31-60 over · 60+ over */
-export const BUCKET_COLORS = ['var(--color-age-0)', 'var(--color-age-1)', 'var(--color-age-2)', 'var(--color-age-3)'];
-export const BUCKET_LABELS = ['Within terms', '1–30 over', '31–60 over', '60+ over'];
-export const BUCKET_SHORT = ['In terms', '1–30', '31–60', '60+'];
+/*
+ * Seven segments: money not yet due, then six bands of days PAST THE DUE
+ * DATE. The client asked for 0-30 through 180+, and all six of those are
+ * overdue bands — money that has not fallen due yet still has to go
+ * somewhere, so it keeps the first segment.
+ *
+ * The ramp runs teal -> yellow -> orange -> red -> dark red. Two reds at the
+ * end rather than one, because 180+ and 120-180 are different conversations
+ * and a single red collapses them.
+ */
+export const BUCKET_COLORS = [
+  'var(--color-age-0)',
+  'var(--color-age-1)',
+  'var(--color-age-2)',
+  'var(--color-age-3)',
+  'var(--color-age-4)',
+  'var(--color-age-5)',
+  'var(--color-age-6)',
+];
+export const BUCKET_LABELS = [
+  'Not yet due', '0–30 over', '30–60 over', '60–90 over',
+  '90–120 over', '120–180 over', '180+ over',
+];
+export const BUCKET_SHORT = ['In terms', '0–30', '30–60', '60–90', '90–120', '120–180', '180+'];
 
-/** Pull the four buckets off a v_party_ageing row, or null when unjudgeable. */
+/*
+ * A number, or zero — never NaN.
+ *
+ * Number(undefined) is NaN, and NaN poisons every sum it touches: one
+ * missing column turned the dashboard's total into NaN, `NaN > 0` came back
+ * false, and the page announced that not one party had a credit term while a
+ * hundred of them plainly did. A column can be missing for an ordinary
+ * reason — the database is a migration behind the deployed code — and the
+ * screen should degrade, not lie.
+ */
+export function amount(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** The seven buckets off any row that carries them, in display order. */
+export function bucketsFromRow(row) {
+  return [
+    amount(row?.within_terms), amount(row?.over_1_30), amount(row?.over_31_60),
+    amount(row?.over_61_90), amount(row?.over_91_120), amount(row?.over_121_180),
+    amount(row?.over_180),
+  ];
+}
+
+/** The seven buckets off a v_party_ageing row, or null when unjudgeable. */
 export function bucketsOf(row) {
   if (!row || row.needs_credit_term) return null;
   return [
-    Number(row.within_terms ?? 0),
-    Number(row.over_1_30 ?? 0),
-    Number(row.over_31_60 ?? 0),
-    Number(row.over_60 ?? 0),
+    amount(row.within_terms),
+    amount(row.over_1_30),
+    amount(row.over_31_60),
+    amount(row.over_61_90),
+    amount(row.over_91_120),
+    amount(row.over_121_180),
+    amount(row.over_180),
   ];
 }
 
@@ -107,6 +154,25 @@ export function AgeingStripLarge({ buckets, bills }) {
 export function TermBadge({ row }) {
   const base =
     'inline-block font-mono text-[9.5px] font-medium uppercase tracking-[0.04em] px-[7px] py-[2px] whitespace-nowrap rounded-[2px]';
+
+  /*
+   * Some rows carry the term, some only carry whether it was assumed — the
+   * priority list is the latter. Without this the badge fell through to the
+   * approved branch and printed "TERM NOT SET · APPROVED", which is two
+   * contradictory claims in one label and told the reader nothing true.
+   */
+  if (row && row.credit_source === undefined) {
+    return row.term_is_assumed ? (
+      <span className={`${base} border border-dashed border-[#C9A93E] bg-surface text-[#7A6410]`}
+            title="A category default, not an approved term">
+        Assumed term
+      </span>
+    ) : (
+      <span className={`${base} border border-[rgba(0,133,122,.30)] bg-[rgba(0,133,122,.10)] text-teal-deep`}>
+        Approved term
+      </span>
+    );
+  }
 
   if (!row || row.credit_source === 'not_set') {
     return (

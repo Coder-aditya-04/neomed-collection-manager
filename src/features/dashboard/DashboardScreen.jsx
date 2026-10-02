@@ -8,7 +8,7 @@ import {
   partiesAgeingQuery,
 } from '../../lib/queries.js';
 import { formatInr, formatCount, formatAge, formatDate, formatPct } from '../../lib/format.js';
-import AgeingStrip, { AgeingStripLarge, bucketsOf, TermBadge } from '../../components/AgeingStrip.jsx';
+import AgeingStrip, { AgeingStripLarge, bucketsOf, bucketsFromRow, TermBadge } from '../../components/AgeingStrip.jsx';
 
 export default function DashboardScreen() {
   const { data: snapshot, isLoading: loadingSnap } = useQuery(latestSnapshotQuery());
@@ -57,9 +57,11 @@ export default function DashboardScreen() {
     );
   }
 
-  const buckets = portfolio
-    ? [portfolio.within_terms, portfolio.over_1_30, portfolio.over_31_60, portfolio.over_60].map(Number)
-    : null;
+  // bucketsFromRow, not .map(Number): a column the database does not have yet
+  // comes back undefined, and Number(undefined) is NaN, which propagates
+  // through the sum below and makes `judgeable > 0` false — the page then
+  // announces that no party has a credit term while a hundred of them do.
+  const buckets = portfolio ? bucketsFromRow(portfolio) : null;
   const judgeable = (buckets ?? []).reduce((a, b) => a + b, 0);
 
   return (
@@ -159,12 +161,21 @@ export default function DashboardScreen() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[13.5px] font-semibold">{p.display_name}</span>
-                    <TermBadge row={{ ...p, credit_source: p.term_is_assumed ? 'category_default' : 'approved' }} />
+                    {/*
+                      * Passed as-is. This used to synthesise a credit_source of
+                      * 'approved', which told the badge the term was approved
+                      * while giving it no term to print — so it rendered
+                      * "TERM NOT SET · APPROVED", two contradictory claims in
+                      * one label. The priority list knows whether the term was
+                      * assumed and nothing more, and the badge now says exactly
+                      * that much.
+                      */}
+                    <TermBadge row={p} />
                   </div>
                   <p className="mt-[3px] max-w-[78ch] text-[12px] text-body text-pretty">{p.reason}</p>
                   <div className="mt-[7px] w-[150px]">
                     <AgeingStrip
-                      buckets={[p.within_terms, p.over_1_30, p.over_31_60, p.over_60].map(Number)}
+                      buckets={bucketsFromRow(p)}
                       height={8}
                     />
                   </div>

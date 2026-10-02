@@ -45,7 +45,12 @@ $$;
 -- open claim is not a defaulter and belongs in Claims; a party with no
 -- recorded term cannot be called late at all.
 -- -------------------------------------------------------------------
-create or replace function fn_priority_list(p_limit integer default 20)
+-- Dropped rather than replaced: a later migration widens the returned
+-- columns, and Postgres refuses to replace a function whose OUT parameters
+-- differ. Without this, re-running the migrations in order fails here.
+drop function if exists fn_priority_list(integer);
+
+create function fn_priority_list(p_limit integer default 20)
 returns table (
   rank              integer,
   party_id          uuid,
