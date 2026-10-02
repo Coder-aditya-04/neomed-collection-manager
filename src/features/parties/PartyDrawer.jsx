@@ -62,6 +62,10 @@ export default function PartyDrawer({ party, onClose }) {
             <Assignment party={party} onSaved={() => invalidate(queryClient, AFTER.partyDetails)} />
           </Section>
 
+          <Section title="Category and standing">
+            <Standing party={party} onSaved={() => invalidate(queryClient, AFTER.creditTerm)} />
+          </Section>
+
           <Section title="Ageing">
             {buckets ? (
               <>
@@ -488,3 +492,125 @@ function Th({ children, align = 'left' }) {
 }
 
 export { formatCreditTerm };
+
+/* ------------------------------------------------------------------ */
+
+export const CATEGORIES = [
+  ['', 'Not set'],
+  ['hospital', 'Hospital'],
+  ['retailer', 'Retailer'],
+  ['wholesaler', 'Wholesaler'],
+  ['doctor', 'Doctor'],
+  ['customer', 'Customer'],
+];
+
+/*
+ * Collection status, in the order a party travels through it.
+ *
+ * The last three take a party off the priority list — the desk should not be
+ * ringing somebody who has settled or been written off. The two legal states
+ * do NOT: a filed case still needs chasing, and the status is there to tell
+ * the caller how to pitch it, not to let them skip it.
+ */
+export const STATUSES = [
+  ['active', 'Active', 'Ordinary chasing.'],
+  ['in_process', 'In process', 'Being worked outside the normal cycle.'],
+  ['legal_notice_sent', 'Legal notice sent', 'Escalated. Still on the call list.'],
+  ['legal_case_filed', 'Legal case filed', 'Escalated. Still on the call list.'],
+  ['dispute', 'Disputed', 'Taken off the priority list until resolved.'],
+  ['settled', 'Settled', 'Taken off the priority list.'],
+  ['written_off', 'Written off', 'Taken off the priority list.'],
+];
+
+/**
+ * Category drives the credit-term default; status drives whether anybody
+ * rings this party at all. Both belong on the party, not on a settings
+ * screen, because both are decided while looking at the party.
+ *
+ * A status change asks for a note. "Legal case filed" without a case number
+ * or a date is the kind of record that looks informative and answers nothing
+ * six weeks later, when somebody has to decide what happens next.
+ */
+function Standing({ party, onSaved }) {
+  const [category, setCategory] = useState(party.category ?? '');
+  const [status, setStatus] = useState(party.status ?? 'active');
+  const [note, setNote] = useState(party.status_note ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const statusChanged = status !== (party.status ?? 'active');
+  const dirty =
+    category !== (party.category ?? '') || statusChanged || note !== (party.status_note ?? '');
+  const needsNote = statusChanged && !note.trim();
+  const meaning = STATUSES.find(([v]) => v === status)?.[2];
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    const patch = { category: category || null };
+    if (statusChanged || note !== (party.status_note ?? '')) {
+      patch.status = status;
+      patch.status_note = note.trim() || null;
+      patch.status_changed_on = new Date().toISOString().slice(0, 10);
+    }
+    const { error: e } = await supabase.from('parties').update(patch).eq('id', party.party_id);
+    setSaving(false);
+    if (e) setError(e.message);
+    else onSaved?.();
+  }
+
+  return (
+    <div className="border border-hair bg-surface p-3">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="block">
+          <span className="kicker mb-1 block">Category</span>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-[12px]"
+          >
+            {CATEGORIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <span className="kicker mb-1 block">Collection status</span>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-[12px]"
+          >
+            {STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>
+        <button
+          type="button"
+          className="btn btn-primary px-3 py-[4px] text-[12px]"
+          disabled={!dirty || needsNote || saving}
+          onClick={save}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+
+      <label className="mt-2 block">
+        <span className="kicker mb-1 block">
+          Note{statusChanged ? ' — required when the status changes' : ''}
+        </span>
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Case no. 412/2026 filed at Nashik civil court, 14 Sep"
+          className="w-full rounded-[2px] border border-hair px-[8px] py-[4px] text-[12px]"
+        />
+      </label>
+
+      <p className="mt-2 text-[11px] text-faint text-pretty">
+        {meaning}
+        {party.status_changed_on ? ` Set ${formatDate(party.status_changed_on)}.` : ''}
+        {category ? '' : ' Setting a category also gives this party a default credit term, labelled as an assumption until somebody approves it.'}
+      </p>
+
+      {error ? <p className="mt-2 text-[11.5px] text-age-4">{error}</p> : null}
+    </div>
+  );
+}

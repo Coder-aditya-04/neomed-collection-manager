@@ -9,10 +9,19 @@ import PartyDrawer from './PartyDrawer.jsx';
 /** Matches the component sheet in the prototype. */
 const ROW_HEIGHT = 27;
 
+/*
+ * The tiny-balance filters are here because the desk asked for them by name:
+ * hundreds of parties owe less than a phone call costs to make, and seeing
+ * them as a group is what turns them into one write-off decision instead of
+ * hundreds of individually pointless calls.
+ */
 const FILTERS = [
   ['all', 'All'],
   ['critical', 'Critical'],
+  ['defaulters', 'Under legal'],
   ['big', '≥ ₹5 L'],
+  ['under1500', '< ₹1,500'],
+  ['under100', '< ₹100'],
   ['noterm', 'Term not set'],
   ['assumed', 'Assumed term'],
   ['credit', 'Credit balance'],
@@ -49,7 +58,12 @@ export default function PartiesScreen() {
 
     const predicate = {
       critical: (p) => Number(p.over_60 ?? 0) > 0 && Number(p.current_outstanding) > 100000,
+      defaulters: (p) => ['legal_notice_sent', 'legal_case_filed', 'in_process', 'dispute'].includes(p.status),
       big: (p) => Number(p.current_outstanding) >= 500000,
+      // Strictly above zero: a party at nil owes nothing and is not a small
+      // balance, it is a closed account, and it has its own filter.
+      under1500: (p) => Number(p.current_outstanding) > 0 && Number(p.current_outstanding) < 1500,
+      under100: (p) => Number(p.current_outstanding) > 0 && Number(p.current_outstanding) < 100,
       noterm: (p) => p.needs_credit_term && Number(p.current_outstanding) > 0,
       assumed: (p) => p.term_is_assumed,
       credit: (p) => p.is_credit_balance,

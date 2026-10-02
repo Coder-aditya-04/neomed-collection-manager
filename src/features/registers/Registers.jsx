@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { partiesAgeingQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatDate } from '../../lib/format.js';
 import { AFTER, invalidate } from '../../lib/cache.js';
+import Overlay from '../../components/Overlay.jsx';
 
 /**
  * Claims, follow-ups and promises.
@@ -266,12 +267,30 @@ export function FollowupsScreen() {
     },
   });
 
+  /*
+   * Closing asks why, and will not proceed without an answer.
+   *
+   * The database enforces this with a CHECK — closing a follow-up is how
+   * somebody says the matter is dealt with, and without a reason the register
+   * fills with closed rows nobody can learn from, so the next person rings the
+   * party blind. This dialog is the form side of the same rule: without it the
+   * button simply fails against the constraint, which is a worse experience
+   * than being asked.
+   */
+  const [closing, setClosing] = useState(null);
+
   const close = useMutation({
-    mutationFn: async (id) => {
-      const { error } = await supabase.from('followups').update({ closed: true }).eq('id', id);
+    mutationFn: async ({ id, reason }) => {
+      const { error } = await supabase
+        .from('followups')
+        .update({ closed: true, close_reason: reason })
+        .eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => invalidate(qc, AFTER.followup),
+    onSuccess: () => {
+      invalidate(qc, AFTER.followup);
+      setClosing(null);
+    },
   });
 
   const today = new Date().toISOString().slice(0, 10);
@@ -320,7 +339,7 @@ export function FollowupsScreen() {
             action={
               <span className="flex items-center gap-[6px]">
                 <ContactActions party={partyOf(parties, f.party_id)} compact />
-                <button type="button" className="btn btn-secondary px-[10px] py-[3px] text-[11.5px]" onClick={() => close.mutate(f.id)}>Close</button>
+                <button type="button" className="btn btn-secondary px-[10px] py-[3px] text-[11.5px]" onClick={() => setClosing(f)}>Close</button>
               </span>
             } />
         ))}
@@ -333,7 +352,7 @@ export function FollowupsScreen() {
             action={
               <span className="flex items-center gap-[6px]">
                 <ContactActions party={partyOf(parties, f.party_id)} compact />
-                <button type="button" className="btn btn-secondary px-[10px] py-[3px] text-[11.5px]" onClick={() => close.mutate(f.id)}>Close</button>
+                <button type="button" className="btn btn-secondary px-[10px] py-[3px] text-[11.5px]" onClick={() => setClosing(f)}>Close</button>
               </span>
             } />
         ))}
@@ -342,10 +361,94 @@ export function FollowupsScreen() {
       <Group title="Team activity" count={activity.length}>
         {activity.length === 0 ? <Empty>No contact logged yet.</Empty> : activity.map((f) => (
           <Row key={f.id} name={f.parties?.display_name ?? '—'} amount={formatInr(f.parties?.current_outstanding)}
-            meta={`${formatDate(f.contact_date)} · ${f.method}${f.outcome ? ` · ${f.outcome}` : ''}`} />
+            meta={`${formatDate(f.contact_date)} · ${f.method}${f.outcome ? ` · ${f.outcome}` : ''}${f.close_reason ? ` · closed: ${f.close_reason}` : ''}`} />
         ))}
       </Group>
+
+      {closing ? (
+        <CloseFollowupDialog
+          followup={closing}
+          busy={close.isPending}
+          error={close.error?.message}
+          onCancel={() => setClosing(null)}
+          onConfirm={(reason) => close.mutate({ id: closing.id, reason })}
+        />
+      ) : null}
     </Screen>
+  );
+}
+
+/*
+ * The presets are the six things that actually end a follow-up on this desk.
+ * They exist so the reason gets typed at all: faced with an empty box between
+ * themselves and the next call, people write "done", which is no reason. Any
+ * of them can be edited before saving, and the box stays free text.
+ */
+const CLOSE_REASONS = [
+  'Paid in full',
+  'Part payment received',
+  'Promise taken — logged separately',
+  'Party disputes the bill',
+  'Could not reach — number wrong',
+  'Handed to legal',
+];
+
+function CloseFollowupDialog({ followup, onConfirm, onCancel, busy, error }) {
+  const [reason, setReason] = useState('');
+  const trimmed = reason.trim();
+
+  return (
+    <Overlay onClose={onCancel} label="Close follow-up">
+      <div className="overlay-center">
+        <div className="panel w-[460px] max-w-[94vw] p-[18px]">
+          <h2 className="text-[14.5px] font-semibold tracking-[-0.01em]">Why is this being closed?</h2>
+          <p className="mt-1 text-[12px] text-mute text-pretty">
+            {followup.parties?.display_name ?? 'This party'} — whoever picks this party up next will
+            read what you write here before they ring.
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-[6px]">
+            {CLOSE_REASONS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setReason(r)}
+                className={[
+                  'rounded-[2px] border px-[9px] py-[4px] text-[11.5px] transition-colors',
+                  reason === r
+                    ? 'border-teal bg-teal font-medium text-onaccent'
+                    : 'border-hair bg-surface text-body hover:border-teal',
+                ].join(' ')}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+            placeholder="Or write what happened…"
+            className="mt-3 w-full rounded-[2px] border border-hair bg-surface px-[10px] py-[7px] text-[12.5px]"
+          />
+
+          {error ? <p className="mt-2 text-[11.5px] text-age-4">{error}</p> : null}
+
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!trimmed || busy}
+              onClick={() => onConfirm(trimmed)}
+            >
+              {busy ? 'Closing…' : 'Close follow-up'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Overlay>
   );
 }
 
