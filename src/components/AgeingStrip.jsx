@@ -115,31 +115,51 @@ export default function AgeingStrip({ buckets, height = 8, width, title }) {
   );
 }
 
-/** The dashboard's large strip, with figures underneath each segment. */
+/**
+ * The large strip, with a legend beneath it.
+ *
+ * Figures used to sit in a column under each segment. That worked at four
+ * segments and fell apart at seven: a 6%-wide band cannot hold "120-180 OVER"
+ * and "₹63.00 L", so the labels wrapped into each other and the reader got a
+ * puzzle. The strip now carries the proportions and nothing else, and the
+ * legend below carries the names and figures at a readable size, wrapping as
+ * the panel narrows.
+ *
+ * The legend is also what makes the ramp legible to a colourblind reader and
+ * in print: identity is never left to colour alone.
+ */
 export function AgeingStripLarge({ buckets, bills }) {
-  const total = (buckets ?? []).reduce((a, b) => a + Math.abs(b), 0);
+  const values = buckets ?? [];
+  const total = values.reduce((a, b) => a + Math.abs(b), 0);
+
   return (
     <div>
-      <div className="flex h-[34px] gap-[3px]">
-        {(buckets ?? []).map((v, i) => (
+      <div className="flex h-[30px] gap-[2px]">
+        {values.map((v, i) => (
           <div
             key={i}
-            className="relative min-w-[3px] border border-[rgba(15,31,46,.16)] bg-surface/50 p-[2px] shadow-[inset_0_1px_2px_rgba(15,31,46,.08)]"
-            style={{ flexGrow: Math.max((Math.abs(v) / (total || 1)) * 100, 0.6), flexBasis: 0 }}
-          >
-            <div
-              className="h-full rounded-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,.38),inset_0_-2px_3px_rgba(15,31,46,.18)]"
-              style={{ background: BUCKET_COLORS[i] }}
-            />
-          </div>
+            title={`${BUCKET_LABELS[i]} — ${formatInr(v)} · ${formatPct(Math.abs(v), total)}`}
+            className="min-w-[3px] rounded-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,.3)]"
+            style={{
+              flexGrow: Math.max((Math.abs(v) / (total || 1)) * 100, 0.6),
+              flexBasis: 0,
+              background: BUCKET_COLORS[i],
+            }}
+          />
         ))}
       </div>
-      <div className="mt-[7px] flex gap-[3px]">
-        {(buckets ?? []).map((v, i) => (
-          <div key={i} style={{ flexGrow: Math.max((Math.abs(v) / (total || 1)) * 100, 0.6), flexBasis: 0, minWidth: 0 }}>
-            <div className="truncate text-[10px] uppercase tracking-[0.07em] text-mute">{BUCKET_LABELS[i]}</div>
-            <div className="tnum mt-px text-[13.5px] font-medium">{formatInr(v)}</div>
-            <div className="tnum truncate text-[10px] text-faint">
+
+      <div className="mt-[11px] grid grid-cols-[repeat(auto-fit,minmax(118px,1fr))] gap-x-4 gap-y-[9px]">
+        {values.map((v, i) => (
+          <div key={i} className="min-w-0">
+            <div className="flex items-center gap-[6px]">
+              <span className="h-[8px] w-[8px] flex-none rounded-[2px]" style={{ background: BUCKET_COLORS[i] }} />
+              <span className="truncate text-[10px] uppercase tracking-[0.06em] text-mute">
+                {BUCKET_LABELS[i]}
+              </span>
+            </div>
+            <div className="tnum mt-[2px] pl-[14px] text-[13px] font-medium">{formatInr(v)}</div>
+            <div className="tnum truncate pl-[14px] text-[10px] text-faint">
               {formatPct(Math.abs(v), total)}
               {bills ? ` · ${bills[i]}` : ''}
             </div>

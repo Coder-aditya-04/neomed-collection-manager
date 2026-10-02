@@ -51,12 +51,12 @@
    * "probably not coming" rather than collapsing into one colour.
    */
   --color-age-0: #14958a;
-  --color-age-1: #d8a21a;
-  --color-age-2: #e0742b;
-  --color-age-3: #d2512f;
-  --color-age-4: #c4373c;
-  --color-age-5: #a32730;
-  --color-age-6: #7d1a22;
+  --color-age-1: #f0c419;
+  --color-age-2: #e8912a;
+  --color-age-3: #dd6430;
+  --color-age-4: #c93b3c;
+  --color-age-5: #9e2533;
+  --color-age-6: #6b1526;
   /* Claims are their own colour: held by us, not owed late by them. */
   --color-claim: #6d5bb8;
 
@@ -84,6 +84,20 @@
   --color-mute: #93a5b6;
   --color-faint: #6f8294;
   --color-rule: #1c2839;
+  /*
+   * The ageing ramp is re-stepped for dark mode rather than flipped: the
+   * light ramp's dark end (#6b1526) all but disappears on a dark surface.
+   * These steps stay monotonically darkening — which is what makes an
+   * ordered ramp readable as an order — while every one of them clears 3:1
+   * against the dark panel.
+   */
+  --color-age-0: #2bb8a6;
+  --color-age-1: #f5d04a;
+  --color-age-2: #eda84a;
+  --color-age-3: #e2824f;
+  --color-age-4: #d1615c;
+  --color-age-5: #bc4a63;
+  --color-age-6: #ad4a6a;
   --sidebar-a: rgba(18, 28, 45, 0.82);
   --sidebar-b: rgba(14, 22, 37, 0.74);
   --sidebar-edge: rgba(79, 209, 197, 0.16);

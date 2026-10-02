@@ -24,6 +24,7 @@ const NAV = [
       { to: '/', label: 'Today', icon: 'today' },
       { to: '/parties', label: 'Parties', icon: 'parties' },
       { to: '/credit-master', label: 'Credit master', icon: 'terms' },
+      { to: '/analytics', label: 'Analytics', icon: 'analytics' },
     ],
   },
   {
@@ -54,6 +55,7 @@ const NAV = [
  */
 const ICON_PATHS = {
   today:      'M3 12h4l3 7 4-14 3 7h4',
+  analytics:  'M4 20V4m0 16h16M8 16V11m4 5V7m4 9v-6m4 6V5',
   parties:    'M3 20v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M17 20v-1a4 4 0 0 0-3-3.9',
   terms:      'M5 4h11l3 3v13H5zM9 9h6M9 13h6M9 17h3',
   desk:       'M4 19V9m5 10V5m5 14v-7m5 7V8',
@@ -82,6 +84,7 @@ const TITLES = {
   '/': ['Today', 'The current position across the book'],
   '/parties': ['Parties', 'All parties · sort, filter, search'],
   '/credit-master': ['Credit master', 'Fill the top 100 and most of the book becomes judgeable'],
+  '/analytics': ['Analytics', 'How the book is moving, how parties actually pay, and what that suggests doing'],
   '/unallocated': ['To allocate', 'Money received but not yet settled against a bill in Marg'],
   '/recovery': ['Recovery desk', 'Who called whom, what was said, and how it compares with what was committed'],
   '/statements': ['Statements', 'Month-end party statements, composed and ready to send on WhatsApp'],
