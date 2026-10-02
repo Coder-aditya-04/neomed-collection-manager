@@ -248,7 +248,20 @@ export default function AnalyticsScreen() {
         </Panel>
 
         <Panel title="Exposure by trade category" sub="Where the outstanding actually sits.">
-          <RankedBars rows={categoryRows} empty="No categories assigned yet. Set them in the credit master." />
+          <RankedBars rows={categoryRows} empty="Nothing imported yet." />
+          {/*
+            * One bar marked "Not categorised" is a true answer and a useless
+            * chart. Say what would make it useful instead of leaving the
+            * reader to work out why the panel is empty of information.
+            */}
+          {categoryRows.length <= 1 && categoryRows[0]?.name === CATEGORY_LABELS.uncategorised ? (
+            <p className="mt-3 text-[11.5px] text-mute text-pretty">
+              No party has a trade category yet, so there is nothing to compare. Open any party and
+              set Hospital, Retailer, Wholesaler, Doctor or Customer — this chart then shows which
+              kind of customer the money is actually tied up in, and each category also carries a
+              default credit term you can approve or override.
+            </p>
+          ) : null}
         </Panel>
 
         <Panel
