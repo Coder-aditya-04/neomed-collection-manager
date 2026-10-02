@@ -6,14 +6,17 @@ import { matchIntent, CAPABILITIES, CAPABILITY_GROUPS } from './intents.js';
 import { executeIntent } from './execute.js';
 import AgeingStrip from '../../components/AgeingStrip.jsx';
 
-const CHIPS = [
-  "Give me today's calls on priority",
-  'Who has payment pending?',
-  'Who did not keep their promise?',
-  'What is the overall position?',
-  'Which parties cannot I judge?',
-  'What changed since the last import?',
-];
+/*
+ * The chips above the input once a conversation has started.
+ *
+ * This was a hardcoded six while the opening screen offered seventeen, so
+ * asking one question made eleven of them disappear — exactly when somebody
+ * is most likely to want the next one. They come from the same list now, six
+ * shown and the rest a click away, so nothing is lost and the input area
+ * still stays out of the way.
+ */
+const CHIPS = CAPABILITIES.map((c) => c.example);
+const CHIPS_COLLAPSED = 6;
 
 export default function AssistantScreen() {
   const location = useLocation();
@@ -21,6 +24,7 @@ export default function AssistantScreen() {
   const { data: parties } = useQuery(partiesAgeingQuery());
   const [thread, setThread] = useState([]);
   const [draft, setDraft] = useState('');
+  const [showAllChips, setShowAllChips] = useState(false);
   const [busy, setBusy] = useState(false);
   const endRef = useRef(null);
 
@@ -65,7 +69,17 @@ export default function AssistantScreen() {
           {thread.map((m, i) =>
             m.role === 'user' ? (
               <div key={i} className="flex justify-end">
-                <div className="max-w-[70%] rounded-[3px] bg-ink px-3 py-2 text-[12.5px] text-onaccent">{m.text}</div>
+                {/*
+                   * bg-teal, not bg-ink. --color-ink inverts between themes —
+                   * near-black in light, near-white in dark — while
+                   * --color-onaccent is white in both, by design. Together they
+                   * made the question white on near-white and unreadable in
+                   * dark mode. The accent is the one fill that stays dark
+                   * enough for white text in either theme.
+                   */}
+                <div className="max-w-[70%] rounded-[3px] bg-teal px-3 py-2 text-[12.5px] text-onaccent shadow-[0_1px_2px_rgba(15,31,46,.12)]">
+                  {m.text}
+                </div>
               </div>
             ) : (
               <Answer key={i} answer={m.answer} routed={m.routed} />
@@ -78,7 +92,7 @@ export default function AssistantScreen() {
 
       <div className="mx-auto mt-3 w-full max-w-[860px]">
         <div className="mb-2 flex flex-wrap gap-2">
-          {CHIPS.map((c) => (
+          {(showAllChips ? CHIPS : CHIPS.slice(0, CHIPS_COLLAPSED)).map((c) => (
             <button
               key={c}
               type="button"
@@ -88,6 +102,15 @@ export default function AssistantScreen() {
               {c}
             </button>
           ))}
+          {CHIPS.length > CHIPS_COLLAPSED ? (
+            <button
+              type="button"
+              onClick={() => setShowAllChips((v) => !v)}
+              className="rounded-[2px] border border-dashed border-teal/50 px-[10px] py-[4px] text-[11.5px] font-medium text-teal-deep transition-colors hover:bg-teal/[0.06]"
+            >
+              {showAllChips ? 'Show fewer' : `+${CHIPS.length - CHIPS_COLLAPSED} more questions`}
+            </button>
+          ) : null}
         </div>
         <form
           onSubmit={(e) => {
