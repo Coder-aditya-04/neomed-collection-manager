@@ -103,7 +103,7 @@
 
     <div class="figures" style="margin-top:26px;">
       <div><div class="kicker">Parties</div><div class="v">819</div><div class="n">709 owing · 97 in credit</div></div>
-      <div><div class="kicker">Open bills</div><div class="v">8,197</div><div class="n">back to Mar 2020</div></div>
+      <div><div class="kicker">Open bills</div><div class="v">8,359</div><div class="n">back to Mar 2020</div></div>
       <div><div class="kicker">Net outstanding</div><div class="v">₹7.93 Cr</div><div class="n">matches Marg exactly</div></div>
       <div><div class="kicker">Running cost</div><div class="v">₹0</div><div class="n">per month</div></div>
     </div>
@@ -144,11 +144,13 @@
 </p>
 
 <p>
-  <strong>The party totals and the bill rows disagree.</strong> For 46 parties,
-  Marg's own header total does not match the sum of the bills beneath it — by
-  about ₹1 crore in aggregate. Adding up bill rows gives ₹8.93 Cr where Marg
-  shows ₹7.93 Cr. This system takes the header figure, as Marg does, and lists
-  every disagreement so nothing is hidden.
+  <strong>Marg writes receipts without a bill number.</strong> When a payment has
+  not been settled against a particular invoice, Marg records it as a row with
+  the number column empty. There are 161 such rows in a typical export,
+  carrying about −₹1.53 Cr between them. They must be read, not skipped: they
+  are the money the "To allocate" screen is built on, and skipping them makes
+  Marg's own totals appear to disagree with its own bills when in fact they
+  agree to the rupee for every party.
 </p>
 
 <p>
@@ -468,10 +470,11 @@
 <div class="warn-box keep">
   <p style="margin:0 0 6px;"><strong>Two things are true on day one, and both are expected.</strong></p>
   <p style="margin:0 0 6px;font-size:9.5pt;">
-    <strong>The book cannot be aged yet.</strong> No credit term has been recorded, so
-    all ₹8.06 Cr sits under "cannot be judged". Typing in the terms for the
-    largest parties is what turns this from a list of balances into a collection
-    system.
+    <strong>Only judgeable money is aged.</strong> A party with no recorded credit
+    term is kept out of the ageing strip entirely and reported separately, because
+    calling an old bill late when nobody has said what "late" means for that party
+    is the one mistake this system will not make. Typing in the terms for the
+    largest parties is what turns a list of balances into a collection system.
   </p>
   <p style="margin:0;font-size:9.5pt;">
     <strong>Payment history is empty.</strong> It is derived by comparing consecutive
@@ -565,16 +568,17 @@
 
 <div class="warn-box keep">
   <p style="margin:0;font-size:9.5pt;">
-    <strong>One more, worth asking early:</strong> for 46 parties Marg's own header total
-    disagrees with the sum of its bill rows, by about ₹1 crore in aggregate. The system
-    follows the header, as Marg does. Does the accounts team know why those differ?
-    It may be nothing, or it may be something worth correcting at source.
+    <strong>One more, worth asking early:</strong> about 1,700 rows in each export are
+    receipts and adjustments that Marg holds against a party without applying them to any
+    particular bill. Roughly 100 parties are affected. Is that deliberate — a working
+    practice the accounts team is comfortable with — or a backlog nobody has had time to
+    clear? The answer decides whether "To allocate" is a daily workflow or a one-off cleanup.
   </p>
 </div>
 
 <footer>
   Neomed Collection Manager · user guide and handover · 16 September 2026<br>
-  Built against the outstanding export of 9 September 2026 — 819 parties, 8,197 bills, ₹7.93 Cr net.
+  Built against the outstanding export of 9 September 2026 — 819 parties, 8,359 bills, ₹7.93 Cr net.
 </footer>
 </section>
 

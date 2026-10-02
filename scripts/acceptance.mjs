@@ -58,7 +58,7 @@ const gapsDesc = parsed.parties
   .map((x) => Math.abs(x.current_outstanding - x.bill_balance_sum))
   .filter((g) => g > 0.005)
   .sort((a, b) => b - a);
-const thresholdFor15 = gapsDesc[14];
+const thresholdFor15 = gapsDesc[14];  // undefined once the gaps are gone
 
 console.log(`parsed in ${ms}ms\n`);
 console.log('ACCEPTANCE'.padEnd(26), 'ACTUAL'.padEnd(16), 'EXPECTED'.padEnd(16), 'MATCH');
@@ -71,27 +71,45 @@ for (const [label, actual, expected] of rows) {
   console.log(label.padEnd(26), a.padEnd(16), e.padEnd(16), ok ? 'yes' : 'NO');
 }
 
-console.log('\nRECONCILIATION WARNING COUNT — spec conflict');
+console.log('\nRECONCILIATION WARNINGS');
 console.log('-'.repeat(72));
 console.log('at the specified >Rs 1,000 threshold  ', mismatches.length, 'parties');
 console.log('the spec\'s acceptance figure         ', 15, 'parties');
-console.log('threshold that would yield 15         ', '>' + fmt(thresholdFor15));
-console.log('The >Rs 1,000 rule is implemented; the 15 figure is not reachable from it.');
+if (mismatches.length === 0) {
+  console.log('Zero is the correct answer. The spec anticipated 15 because it was');
+  console.log('written against a parse that dropped Marg\'s numberless receipt rows;');
+  console.log('read whole, every party\'s header agrees with its own bills.');
+} else {
+  console.log('threshold that would yield 15         ', '>' + fmt(thresholdFor15));
+}
 
-console.log('\nTHE TRAP');
+/*
+ * This block used to be headed THE TRAP, and reported the two totals
+ * disagreeing by about Rs 1 Cr. They do not disagree. The gap was the
+ * parser dropping every row Marg writes without a bill number — the
+ * receipts — and the difference it produced was then presented as a flaw
+ * in Marg. It is reported here as an agreement check instead, because
+ * that is what it now is, and because a regression would show up as the
+ * two numbers parting company again.
+ */
+console.log('\nHEADER vs BILL ROWS');
 console.log('-'.repeat(72));
-console.log('sum of bill balances    ', fmt(billSum), '  <- what a naive parser reports');
+console.log('sum of bill balances    ', fmt(billSum));
 console.log('sum of header balances  ', fmt(t.netTotal), '  <- what Marg shows the owner');
-console.log('difference              ', fmt(billSum - t.netTotal));
+console.log('difference              ', fmt(billSum - t.netTotal),
+  Math.abs(billSum - t.netTotal) < 1 ? '  <- they agree, as they should' : '  <- REGRESSION');
+console.log('parties disagreeing     ', mismatches.length);
 
-console.log('\nFOUR LARGEST MISMATCHES (the ones the spec names)');
-console.log('-'.repeat(72));
-for (const w of [...mismatches].sort((a, b) => Math.abs(b.detail.gap) - Math.abs(a.detail.gap)).slice(0, 4)) {
-  console.log(
-    w.party_name.padEnd(34),
-    `header ${fmt(w.detail.header_balance)}`.padEnd(20),
-    `bills ${fmt(w.detail.bill_balance_sum)}`
-  );
+if (mismatches.length) {
+  console.log('\nLARGEST MISMATCHES');
+  console.log('-'.repeat(72));
+  for (const w of [...mismatches].sort((a, b) => Math.abs(b.detail.gap) - Math.abs(a.detail.gap)).slice(0, 4)) {
+    console.log(
+      w.party_name.padEnd(34),
+      `header ${fmt(w.detail.header_balance)}`.padEnd(20),
+      `bills ${fmt(w.detail.bill_balance_sum)}`
+    );
+  }
 }
 
 console.log('\nALL RECONCILIATION WARNINGS');

@@ -10,7 +10,7 @@ data source is a bill-wise outstanding `.xls` exported by hand from Marg ERP.
 - **Docs:** [Handover](docs/HANDOVER.md) (for the client) · [Operations](docs/OPERATIONS.md) (for whoever maintains this)
 - **Tests:** 210 — 108 JavaScript, 102 SQL
 
-The 9 Sep export is imported: 819 parties, 8,197 bills, ₹7.93 Cr net, matching
+The 9 Sep export is imported: 819 parties, 8,359 bills, ₹7.93 Cr net, matching
 Marg exactly.
 
 ```
@@ -19,14 +19,16 @@ Parties                    819              819              yes
   owing                    709              709              yes
   in credit                97               97               yes
   at zero                  13               13               yes
-Bill rows                  8197             8197             yes
+Bill rows                  8359             8359             yes
 Owed                       ₹8.06 Cr         ₹8.06 Cr         yes
 Credit                     −₹12.61 L        −₹12.61 L        yes
 Net                        ₹7.93 Cr         ₹7.93 Cr         yes
 
-THE TRAP
-sum of bill balances     ₹8.93 Cr   <- what a naive parser reports
+HEADER vs BILL ROWS
+sum of bill balances     ₹7.93 Cr
 sum of header balances   ₹7.93 Cr   <- what Marg shows the owner
+difference               ₹0         <- they agree, as they should
+parties disagreeing      0
 ```
 
 Re-run it any time with `node scripts/acceptance.mjs`.
@@ -118,11 +120,20 @@ The export interleaves two row types: a **party header row** (column 0 = name,
 column 5 = that party's total) and **bill rows** beneath it (column 0 empty).
 
 **A party's outstanding is the header row's column 5, never the sum of its
-bill rows.** In the reference file the two disagree for 15 parties by about
-₹1 crore; summing bill balances gives ₹8.93 Cr where Marg shows ₹7.93 Cr.
-Bill rows supply only the *shape* of the ageing, which SQL then rescales onto
-the header total. `test/margParser.test.js` asserts both the right answer and
-that the wrong method would have produced a visibly different one.
+bill rows.** Bill rows supply only the *shape* of the ageing, which SQL then
+rescales onto the header total.
+
+The spec warned that the two disagree for 15 parties by about ₹1 crore, and
+for a while this README reported 46. **Both figures were artefacts of a
+parser bug.** Marg writes receipts and adjustments with the bill-number
+column empty, and `classifyRow` was treating any such row as blank — 161 rows
+per file, carrying −₹1.53 Cr. Once they are read, every party's header agrees
+with the sum of its own bills to the rupee, on all four exports.
+
+The header rule stands regardless: it is the figure Marg shows the owner, and
+deriving a party's total by addition would make the product's answer depend
+on the parser rather than on Marg. But it is worth being exact about why —
+the rule is about provenance, not about a discrepancy that does not exist.
 
 Other quirks handled, all covered by tests: `DD-MMM-YY` dates parsed
 explicitly (`Date.parse` misreads two-digit years); `bill_age_days` computed
@@ -238,22 +249,18 @@ a cash entry, dated 14 Mar 2020 — which *is* 2,370 days before 9 Sep
 treats sub-rupee balances as nil (`ZERO_TOLERANCE`), which reproduces the
 spec's split exactly. The exact figures are still stored and still summed.
 
-**6. The reconciliation warning count cannot be both things the spec says.**
-"Log every party where the gap exceeds ₹1,000" and "15 reconciliation warnings
-raised" are inconsistent on this file: **46 parties exceed ₹1,000**. Fifteen
-would need a threshold of about **₹2.19 L**. The ₹1,000 rule is implemented,
-since it is the operative instruction. All four named parties reconcile
-exactly as the spec describes:
+**6. The spec's 15 reconciliation warnings do not exist — and should not.**
+The spec expects 15 parties whose header disagrees with their bill rows. The
+real answer is **zero**, on every export.
 
-| party | header | bill rows |
-|---|---|---|
-| PARTY A (LARGE HOSPITAL) | ₹31.23 L | ₹52.86 L |
-| PARTY B (ONCOLOGY CENTRE) | ₹29.44 L | ₹43.34 L |
-| PARTY C (LARGEST EXPOSURE) | ₹89.72 L | ₹99.52 L |
-| PARTY D (NURSING HOME) | ₹6.77 L | ₹16.04 L |
+The spec's own figures were measured against a parse that dropped Marg's
+numberless receipt rows, which is also why it expected 8,197 bills where the
+file actually holds 8,359. Read whole, there is nothing to reconcile. The
+`>₹1,000` warning rule is still implemented and still fires if a gap ever
+appears; a regression in the parser would show up here immediately.
 
-Also confirmed as the spec states: P.D.C. is 0 on all 8,197 rows, Remark is
-empty on all of them, and the CRE count is exactly 6,308.
+Also confirmed as the spec states: P.D.C. is 0 on every row, Remark is empty
+on all of them, and the CRE count is exactly 6,308.
 
 ## Known conflicts still open
 

@@ -29,11 +29,20 @@ written you see what the file contains, what changed since yesterday, and
 every discrepancy it found. Nothing reaches the database until you confirm.
 
 **The book, correctly totalled.** The 9 September file gives ₹7.93 Cr across
-819 parties and 8,197 bills — the same figure Marg shows. That agreement is
-not accidental: for 46 parties the header total and the sum of the bill rows
-disagree, by about ₹1 crore in aggregate. Adding up the bill rows gives
-₹8.93 Cr. The system takes the header figure, as Marg does, and lists every
-disagreement so nothing is hidden.
+819 parties and 8,359 bills — the same figure Marg shows, to the rupee, for
+every party.
+
+An earlier version of this document claimed that Marg's header totals
+disagreed with the sum of its own bill rows for 46 parties, by about ₹1 crore.
+**That was wrong, and the fault was ours.** Marg writes receipts and
+adjustments with the bill-number column empty, and the parser was treating
+any row without a number as blank — 161 rows per file, carrying −₹1.53 Cr.
+Dropping them is what made the totals disagree. With those rows read
+correctly the gap is zero parties and ₹0.00 on all four exports. Marg was
+right throughout.
+
+The system still takes the header figure as the party's total, as Marg does,
+and still reports any disagreement it finds. There simply aren't any.
 
 **Ageing that respects how each party actually pays.** Two models:
 
@@ -54,9 +63,25 @@ work is finite: the top hundred rows cover most of the money.
 **Registers.** Claims grouped by who owes the internal action; follow-ups
 ordered missed first; promises, which close only when a payment supports them.
 
+**To allocate.** The "difference" parties: money received that Marg holds
+against the party's name without it being applied to any particular bill —
+the 30,000-then-20,000 case. Their balance is already reduced but the
+invoices keep ageing as though nothing arrived. Open a party and the receipts
+are listed with their dates, above the bills they could be set against, so
+the call can be specific: "the 20,000 you sent on 14 September is still
+unapplied — shall we put it against bill 4471?"
+
+**Statements.** Month-end party statements in Marg's own format, every bill
+listed, ready to send on WhatsApp.
+
+**Recovery desk.** Who called whom, what the customer said, calls made against
+calls due, efficiency, and weekly and monthly targets per person.
+
 **Assistant.** Ask in plain English — "who should I call today", "parties
-above 5 lakh", "how much does X owe". Answers come back as figures, ageing
-strips and ranked lists.
+above 5 lakh", "how much does X owe", "which parties have a difference to
+settle". Answers come back as figures, ageing strips and ranked lists. There
+is no language model behind it: questions are routed by pattern, so the same
+question always gives the same answer and nothing is ever invented.
 
 ---
 
@@ -100,11 +125,54 @@ tested. They need a second day's export before they can show anything: the
 system learns how a party pays by comparing today's file with yesterday's, and
 there is only one file in it so far.
 
-**The book cannot be aged yet**, and this is expected rather than a fault. No
-credit term has been recorded for any party, so all ₹8.06 Cr sits under
-"cannot be judged". Typing in the terms for the largest parties is what turns
-this from a list of balances into a collection system — and it is the one
-thing only Neomed can supply.
+**Terms are going in.** 94 of the top 100 parties now have an approved term,
+which makes 81% of the book judgeable. The remaining 745 parties hold ₹1.43 Cr
+between them and still sit under "cannot be judged" — small accounts, mostly.
+Typing in a term is what turns a balance into a collection case, and it is the
+one thing only Neomed can supply.
+
+---
+
+## Adding someone to the system
+
+Two steps, because a login and a role are separate things. A person who has
+one without the other cannot work: no login means no access at all, and no
+role means they can sign in but every screen refuses them.
+
+**1. Create the login.** In Supabase → **Authentication** → **Users** →
+*Add user* → *Create new user*. Enter their email and a password, and tick
+**Auto Confirm User** — without it they will be sent a confirmation mail that
+may never arrive. Copy the **UID** that appears against the new row.
+
+**2. Give them a role.** Supabase → **SQL Editor**, and run:
+
+```sql
+insert into app_users (id, full_name, role)
+values ('<the UID you copied>', 'Full Name', 'sales');
+```
+
+`role` must be exactly one of:
+
+| Role | Can do |
+|---|---|
+| `owner` | Everything, including settings, targets and managing users |
+| `accounts` | Everything except settings and roles — imports, credit terms, claims |
+| `sales` | Log calls, follow-ups and promises. Cannot change credit terms or import |
+
+The roles are enforced by the database itself, not by hiding buttons. A sales
+user who tried to change a credit term through any other route would still be
+refused.
+
+**To change somebody's role** — `update app_users set role = 'accounts' where
+id = '<UID>';`
+
+**To remove somebody** — delete them in Authentication → Users. Their row in
+`app_users` goes with them, but every call, promise and claim they recorded
+stays, because that history belongs to the party and not to the employee.
+
+**Passwords.** People change their own display name in Settings. For a
+password reset, use Supabase → Authentication → Users → the three dots
+against their row → *Send password recovery*.
 
 ---
 
