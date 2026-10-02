@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { whatsAppLink } from '../registers/Registers.jsx';
 import { useNavigate } from 'react-router-dom';
 import { latestSnapshotQuery, partyBillsQuery, partyActivityQuery } from '../../lib/queries.js';
-import { formatInr, formatCount, formatAge, formatDate, formatCreditTerm } from '../../lib/format.js';
+import { formatInr, formatCount, formatAge, formatDate, formatCreditTerm, formatPct } from '../../lib/format.js';
 import AgeingStrip, { bucketsOf, TermBadge, BUCKET_LABELS } from '../../components/AgeingStrip.jsx';
 import Overlay from '../../components/Overlay.jsx';
 import { AFTER, invalidate } from '../../lib/cache.js';
@@ -60,6 +60,10 @@ export default function PartyDrawer({ party, onClose }) {
 
           <Section title="Assigned to">
             <Assignment party={party} onSaved={() => invalidate(queryClient, AFTER.partyDetails)} />
+          </Section>
+
+          <Section title="How this party pays">
+            <Behaviour party={party} />
           </Section>
 
           <Section title="Category and standing">
@@ -458,11 +462,12 @@ function Section({ title, children }) {
   );
 }
 
-function Fig({ label, value }) {
+function Fig({ label, value, tone }) {
   return (
     <div className="bg-surface/80 px-3 py-2">
       <div className="kicker">{label}</div>
-      <div className="tnum mt-[2px] text-[17px] font-medium tracking-[-0.02em]">{value}</div>
+      <div className="tnum mt-[2px] text-[17px] font-medium tracking-[-0.02em]"
+           style={tone ? { color: tone } : undefined}>{value}</div>
     </div>
   );
 }
@@ -611,6 +616,71 @@ function Standing({ party, onSaved }) {
       </p>
 
       {error ? <p className="mt-2 text-[11.5px] text-age-4">{error}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * This party's own repayment record — the "average repaying days" the desk
+ * asked for, per party rather than in aggregate.
+ *
+ * It stays silent until three of the party's bills have been settled and
+ * observed. Two is an anecdote, and a confident "pays in 46 days" derived
+ * from two bills is exactly the kind of figure somebody repeats in a
+ * negotiation.
+ */
+function Behaviour({ party }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['party-profile', party.party_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('party_profiles')
+        .select('*')
+        .eq('party_id', party.party_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  if (isLoading) return <p className="text-[12px] text-faint">Loading…</p>;
+
+  const settled = Number(data?.settled_bill_count ?? 0);
+  if (!data || settled < 3 || data.actual_payment_days == null) {
+    return (
+      <p className="border border-hair bg-surface p-3 text-[12px] text-mute text-pretty">
+        Not enough settled history yet — {formatCount(settled)} of this party's bills have been
+        seen settling, and three are needed before an average means anything. It builds up as more
+        exports are imported.
+      </p>
+    );
+  }
+
+  const expected =
+    party.credit_type === 'days' ? Number(party.credit_days)
+    : party.credit_type === 'cycle' ? 45
+    : null;
+  const beyond = expected != null ? Number(data.actual_payment_days) - expected : null;
+
+  return (
+    <div className="border border-hair bg-surface p-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(118px,1fr))] gap-3">
+        <Fig label="Settles in" value={`${data.actual_payment_days} days`} />
+        <Fig
+          label={expected == null ? 'Against term' : beyond > 0 ? 'Beyond term' : 'Within term'}
+          value={expected == null ? '—' : `${beyond > 0 ? '+' : ''}${beyond} days`}
+          tone={beyond != null && beyond > 0 ? 'var(--color-age-4)' : 'var(--color-teal-deep)'}
+        />
+        <Fig label="Steadiness" value={data.payment_consistency != null ? `±${Math.round(data.payment_consistency)}d` : '—'} />
+        <Fig label="Rated" value={data.reliability} />
+      </div>
+      <p className="mt-2 text-[11px] text-faint text-pretty">
+        Median of {formatCount(settled)} settled bills
+        {data.last_payment_date ? `, last payment seen ${formatDate(data.last_payment_date)}` : ''}.
+        {Number(data.partial_payment_rate) > 0
+          ? ` ${formatPct(Number(data.partial_payment_rate), 1)} of their bills are paid in instalments rather than at once.`
+          : ''}
+      </p>
     </div>
   );
 }
