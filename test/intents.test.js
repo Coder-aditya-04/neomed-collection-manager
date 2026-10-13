@@ -231,4 +231,47 @@ describe('intent routing', () => {
         .toBe('credit_balance_parties');
     });
   });
+
+  /*
+   * The compound question the desk actually asks — an amount and a credit
+   * term in the same breath — plus the rating words they use for it.
+   */
+  describe('credit-term, rating and small-balance questions', () => {
+    it('routes a plain credit-term question', () => {
+      expect(matchIntent('which parties are on 30 days credit', PARTIES).intent).toBe('by_credit_term');
+    });
+
+    it('reads both halves of "under 100 rs pending with 3 days credit"', () => {
+      const m = matchIntent('show parties under 100 rs pending with 3 days credit', PARTIES);
+      expect(m.intent).toBe('by_credit_term');
+      expect(m.params.days).toBe(3);
+      expect(m.params.amount).toBe(100);
+    });
+
+    it('does not read "30 days credit" as 30 rupees', () => {
+      // Without a limiting word there is no amount in the question, and
+      // inventing one would silently filter the answer down to nothing.
+      const m = matchIntent('parties on 30 days credit', PARTIES);
+      expect(m.params.days).toBe(30);
+      expect(m.params.amount).toBeNull();
+    });
+
+    it('routes the rating words the desk uses, not just the numbers', () => {
+      expect(matchIntent('show me the fraud parties', PARTIES).params.stars).toBe(1);
+      expect(matchIntent('which parties are bad for payment', PARTIES).params.stars).toBe(2);
+      expect(matchIntent('prompt payment parties', PARTIES).params.stars).toBe(5);
+      expect(matchIntent('show the 1 star parties', PARTIES).params.stars).toBe(1);
+      expect(matchIntent('which parties are not rated', PARTIES).params.stars).toBe(0);
+    });
+
+    it('routes a small-balance question and reads the figure', () => {
+      const m = matchIntent('parties under 1500', PARTIES);
+      expect(m.intent).toBe('below_amount');
+      expect(m.params.amount).toBe(1500);
+    });
+
+    it('still sends "above 5 lakh" to the other side of the comparison', () => {
+      expect(matchIntent('parties above 5 lakh', PARTIES).intent).toBe('above_amount');
+    });
+  });
 });

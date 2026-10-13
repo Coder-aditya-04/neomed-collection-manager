@@ -43,6 +43,7 @@ const NAV = [
       { to: '/statements', label: 'Statements', icon: 'statements' },
       { to: '/assistant', label: 'Assistant', icon: 'assistant' },
       { to: '/import', label: 'Import', icon: 'import' },
+      { to: '/housekeeping', label: 'Housekeeping', icon: 'housekeeping' },
       { to: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
@@ -66,6 +67,7 @@ const ICON_PATHS = {
   statements: 'M6 3h9l4 4v14H6zM15 3v4h4M9 12h7M9 16h7',
   assistant:  'M4 5h16v11H9l-4 4z',
   import:     'M12 3v11m0 0l-4-4m4 4l4-4M4 19h16',
+  housekeeping: 'M4 7h7M4 12h7M4 17h7M15 9l2.5 2.5L22 7M15 17l2.5 2.5L22 15',
   settings:   'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM19.4 13.5l1.8 1.4-2 3.4-2.2-.9a7 7 0 0 1-1.8 1l-.3 2.3h-4l-.3-2.3a7 7 0 0 1-1.8-1l-2.2.9-2-3.4 1.8-1.4a7 7 0 0 1 0-2.1L2.6 9.5l2-3.4 2.2.9a7 7 0 0 1 1.8-1L8.9 3.7h4l.3 2.3a7 7 0 0 1 1.8 1l2.2-.9 2 3.4-1.8 1.4a7 7 0 0 1 0 2.1z',
 };
 
@@ -93,6 +95,7 @@ const TITLES = {
   '/promises': ['Promises', 'A promise closes only when a payment supports it'],
   '/claims': ['Claims', 'Money held by our own pending action'],
   '/assistant': ['Assistant', 'Ask about any party, bucket or bill in the current snapshot'],
+  '/housekeeping': ['Housekeeping', 'New parties, duplicates to merge, and who can be assigned work'],
   '/settings': ['Settings', 'Users, category defaults, thresholds and import history'],
 };
 

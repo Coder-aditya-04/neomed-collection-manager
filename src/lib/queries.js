@@ -44,21 +44,42 @@ export function partiesAgeingQuery() {
   return {
     queryKey: ['parties-ageing'],
     queryFn: async () => {
-      const PAGE = 1000;
-      let from = 0;
-      const all = [];
-      for (;;) {
-        const { data, error } = await supabase
-          .from('v_party_ageing')
-          .select('*')
-          .order('current_outstanding', { ascending: false })
-          .range(from, from + PAGE - 1);
-        if (error) throw error;
-        all.push(...(data ?? []));
-        if (!data || data.length < PAGE) break;
-        from += PAGE;
+      /*
+       * v_party_board is the ageing view plus what a person records against a
+       * party — the star rating, aliases, who owns it.
+       *
+       * It falls back to v_party_ageing when the board does not exist yet.
+       * The front end deploys the moment code is pushed; the migration is run
+       * by hand afterwards, so there is always a window where the new code is
+       * live against the older database. This is the main screen of the
+       * product, and it degrades — losing the stars, keeping every figure —
+       * rather than showing "could not find the table" to somebody mid-call.
+       */
+      async function page(view) {
+        const PAGE = 1000;
+        let from = 0;
+        const all = [];
+        for (;;) {
+          const { data, error } = await supabase
+            .from(view)
+            .select('*')
+            .order('current_outstanding', { ascending: false })
+            .range(from, from + PAGE - 1);
+          if (error) throw error;
+          all.push(...(data ?? []));
+          if (!data || data.length < PAGE) break;
+          from += PAGE;
+        }
+        return all;
       }
-      return all;
+
+      try {
+        return await page('v_party_board');
+      } catch (e) {
+        if (!/v_party_board/.test(e?.message ?? '')) throw e;
+        console.warn('v_party_board is missing — falling back to v_party_ageing. Run migration 0011.');
+        return page('v_party_ageing');
+      }
     },
   };
 }

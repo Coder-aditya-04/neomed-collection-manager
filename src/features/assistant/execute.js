@@ -389,6 +389,177 @@ const HANDLERS = {
     };
   },
 
+  /*
+   * "Which parties are on 30 days credit", and the compound the desk asked
+   * for: "parties under 100 rupees pending on 3 days credit".
+   *
+   * With no day count in the question it reports the whole spread instead of
+   * guessing one — that is the "how many on 30, how many on 60" question, and
+   * answering it with a list for an arbitrary term would be a worse answer
+   * than the breakdown.
+   */
+  async by_credit_term(params) {
+    const { data, error } = await supabase
+      .from('v_party_board')
+      .select('*')
+      .order('current_outstanding', { ascending: false })
+      .limit(2000);
+    if (error) throw error;
+    const rows = data ?? [];
+
+    if (params.days == null) {
+      const groups = new Map();
+      for (const p of rows) {
+        const key = p.credit_type === 'days'
+          ? (Number(p.credit_days) === 0 ? 'Cash' : `${p.credit_days} days`)
+          : p.credit_type === 'cycle' ? 'Monthly cycle' : 'No term set';
+        if (!groups.has(key)) groups.set(key, { key, n: 0, amount: 0 });
+        const g = groups.get(key);
+        g.n += 1;
+        g.amount += num(p.current_outstanding);
+      }
+      const list = [...groups.values()].sort((a, b) => b.amount - a.amount);
+      return {
+        kind: 'answer',
+        text: `The book splits across ${formatCount(list.length)} credit terms. Ask about one of them — "which parties are on 30 days credit" — to see the parties.`,
+        list: list.map((g) => ({
+          name: g.key,
+          amount: formatInr(g.amount),
+          meta: `${formatCount(g.n)} parties`,
+        })),
+        source: 'Credit master',
+      };
+    }
+
+    let matched = rows.filter(
+      (p) => p.credit_type === 'days' && Number(p.credit_days) === Number(params.days)
+    );
+    const cap = params.amount;
+    if (cap != null) {
+      matched = matched.filter(
+        (p) => num(p.current_outstanding) > 0 && num(p.current_outstanding) < cap
+      );
+    }
+
+    if (!matched.length) {
+      return {
+        kind: 'text',
+        text: cap != null
+          ? `No party is on ${params.days} days credit with less than ${formatInr(cap)} outstanding.`
+          : `No party is on ${params.days} days credit.`,
+      };
+    }
+
+    const total = matched.reduce((a, p) => a + num(p.current_outstanding), 0);
+    return {
+      kind: 'answer',
+      text: `${formatCount(matched.length)} parties are on ${params.days} days credit${
+        cap != null ? ` with less than ${formatInr(cap)} outstanding` : ''
+      }, holding ${formatInr(total)} between them.`,
+      list: matched.slice(0, 60).map((p) => ({
+        name: p.display_name,
+        amount: formatInr(p.current_outstanding),
+        meta: [
+          `${formatCount(p.bill_count)} bills`,
+          p.star_rating ? `${p.star_rating}★` : null,
+          p.credit_source === 'category_default' ? 'term assumed' : null,
+        ].filter(Boolean).join(' · '),
+      })),
+      source: cap != null ? `${params.days}-day terms under ${formatInr(cap)}` : `${params.days}-day terms`,
+    };
+  },
+
+  /** Parties by the rating a person gave them, not by the computed one. */
+  async by_rating(params) {
+    const { data, error } = await supabase
+      .from('v_party_board')
+      .select('*')
+      .order('current_outstanding', { ascending: false })
+      .limit(2000);
+    if (error) throw error;
+    const rows = data ?? [];
+
+    const LABELS = {
+      1: 'fraud / defaulter', 2: 'bad for payment', 3: 'credit oriented',
+      4: 'genuine but needing follow-up', 5: 'prompt payment',
+    };
+
+    if (params.stars === 0) {
+      const unrated = rows.filter((p) => !p.star_rating && num(p.current_outstanding) > 0);
+      const total = unrated.reduce((a, p) => a + num(p.current_outstanding), 0);
+      return {
+        kind: 'answer',
+        text: `${formatCount(unrated.length)} parties owing ${formatInr(total)} have no rating yet.`,
+        list: unrated.slice(0, 40).map((p) => ({
+          name: p.display_name,
+          amount: formatInr(p.current_outstanding),
+          meta: `${formatCount(p.bill_count)} bills`,
+        })),
+        source: 'Unrated parties',
+      };
+    }
+
+    if (params.stars == null) {
+      const counts = [1, 2, 3, 4, 5].map((n) => {
+        const g = rows.filter((p) => Number(p.star_rating) === n);
+        return {
+          name: `${n}★ — ${LABELS[n]}`,
+          amount: formatInr(g.reduce((a, p) => a + num(p.current_outstanding), 0)),
+          meta: `${formatCount(g.length)} parties`,
+        };
+      });
+      return {
+        kind: 'answer',
+        text: 'Ratings are a judgement someone entered, kept separate from the behaviour the ledger shows. Here is how the book is rated.',
+        list: counts,
+        source: 'Party ratings',
+      };
+    }
+
+    const matched = rows.filter((p) => Number(p.star_rating) === Number(params.stars));
+    if (!matched.length) {
+      return { kind: 'text', text: `No party is rated ${params.stars}★ (${LABELS[params.stars]}).` };
+    }
+    const total = matched.reduce((a, p) => a + num(p.current_outstanding), 0);
+    return {
+      kind: 'answer',
+      text: `${formatCount(matched.length)} parties are rated ${params.stars}★ — ${LABELS[params.stars]} — holding ${formatInr(total)}.`,
+      list: matched.slice(0, 60).map((p) => ({
+        name: p.display_name,
+        amount: formatInr(p.current_outstanding),
+        meta: `${formatCount(p.bill_count)} bills${p.status && p.status !== 'active' ? ` · ${p.status.replaceAll('_', ' ')}` : ''}`,
+      })),
+      source: `${params.stars}★ parties`,
+    };
+  },
+
+  /** The small balances: everything under a figure, worth a batch decision. */
+  async below_amount(params) {
+    const cap = params.amount;
+    const { data, error } = await supabase
+      .from('v_party_board')
+      .select('*')
+      .gt('current_outstanding', 0)
+      .lt('current_outstanding', cap)
+      .order('current_outstanding', { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    const rows = data ?? [];
+    if (!rows.length) return { kind: 'text', text: `No party owes less than ${formatInr(cap)}.` };
+
+    const total = rows.reduce((a, p) => a + num(p.current_outstanding), 0);
+    return {
+      kind: 'answer',
+      text: `${formatCount(rows.length)} parties owe less than ${formatInr(cap)} each — ${formatInr(total)} between them. At this size the cost of chasing is usually more than the money, so this is a batch to decide about rather than a call list.`,
+      list: rows.slice(0, 60).map((p) => ({
+        name: p.display_name,
+        amount: formatInr(p.current_outstanding),
+        meta: `${formatCount(p.bill_count)} bills${p.oldest_bill_age_days != null ? ` · oldest ${p.oldest_bill_age_days}d` : ''}`,
+      })),
+      source: `Under ${formatInr(cap)}`,
+    };
+  },
+
   async claim_blocked() {
     const { data, error } = await supabase
       .from('claims')

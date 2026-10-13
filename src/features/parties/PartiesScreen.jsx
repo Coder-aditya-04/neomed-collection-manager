@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { partiesAgeingQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatAge, formatPct } from '../../lib/format.js';
 import AgeingStrip, { bucketsOf, TermBadge } from '../../components/AgeingStrip.jsx';
+import { Stars } from '../../components/StarRating.jsx';
 import PartyDrawer from './PartyDrawer.jsx';
 
 /** Matches the component sheet in the prototype. */
@@ -22,6 +23,10 @@ const FILTERS = [
   ['big', '≥ ₹5 L'],
   ['under1500', '< ₹1,500'],
   ['under100', '< ₹100'],
+  ['rated1', '★ Fraud'],
+  ['rated12', '★★ or worse'],
+  ['rated5', '★★★★★ Prompt'],
+  ['unrated', 'Not rated'],
   ['noterm', 'Term not set'],
   ['assumed', 'Assumed term'],
   ['credit', 'Credit balance'],
@@ -59,6 +64,10 @@ export default function PartiesScreen() {
     const predicate = {
       critical: (p) => Number(p.over_60 ?? 0) > 0 && Number(p.current_outstanding) > 100000,
       defaulters: (p) => ['legal_notice_sent', 'legal_case_filed', 'in_process', 'dispute'].includes(p.status),
+      rated1: (p) => Number(p.star_rating) === 1,
+      rated12: (p) => Number(p.star_rating) > 0 && Number(p.star_rating) <= 2,
+      rated5: (p) => Number(p.star_rating) === 5,
+      unrated: (p) => !p.star_rating && Number(p.current_outstanding) > 0,
       big: (p) => Number(p.current_outstanding) >= 500000,
       // Strictly above zero: a party at nil owes nothing and is not a small
       // balance, it is a closed account, and it has its own filter.
@@ -94,6 +103,9 @@ export default function PartiesScreen() {
   });
 
   const shownTotal = rows.reduce((a, p) => a + Number(p.current_outstanding), 0);
+  const selectedRow = selected
+    ? (parties ?? []).find((p) => p.party_id === selected.party_id) ?? selected
+    : null;
 
   function sortBy(id) {
     if (id === sortCol) setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
@@ -207,7 +219,15 @@ export default function PartiesScreen() {
         </div>
       </div>
 
-      {selected ? <PartyDrawer party={selected} onClose={() => setSelected(null)} /> : null}
+      {/*
+        * The drawer is handed the CURRENT row, not the one that was clicked.
+        *
+        * `selected` is a snapshot taken at click time. Saving a credit term or
+        * a status refetches the list, but that snapshot never changed, so the
+        * drawer went on showing the old value and the save looked as though it
+        * had silently failed.
+        */}
+      {selectedRow ? <PartyDrawer party={selectedRow} onClose={() => setSelected(null)} /> : null}
     </div>
   );
 }
@@ -234,7 +254,10 @@ function Row({ party, top, onOpen, selected }) {
       ].join(' ')}
       style={{ top, height: ROW_HEIGHT, gridTemplateColumns: GRID, gap: 12 }}
     >
-      <span className="truncate font-medium">{party.display_name}</span>
+      <span className="flex min-w-0 items-center gap-[6px]">
+        <span className="truncate font-medium">{party.display_name}</span>
+        <Stars value={party.star_rating} size={10} />
+      </span>
       <span className="truncate">
         <TermBadge row={party} />
       </span>

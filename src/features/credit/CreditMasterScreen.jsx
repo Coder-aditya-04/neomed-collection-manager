@@ -121,9 +121,12 @@ export default function CreditMasterScreen() {
           <h2 className="text-[15px] font-semibold tracking-[-0.01em]">
             {progress.done} of the top {progress.top100Count} have approved terms
           </h2>
-          <span className="tnum text-[12px] text-mute">
-            {formatPct(progress.classifiable, progress.total)} of the book is now judgeable ·{' '}
-            {formatInr(progress.classifiable)}
+          <span className="flex items-center gap-3">
+            <span className="tnum text-[12px] text-mute">
+              {formatPct(progress.classifiable, progress.total)} of the book is now judgeable ·{' '}
+              {formatInr(progress.classifiable)}
+            </span>
+            <ExportButton parties={parties} />
           </span>
         </div>
         <div className="mt-2 h-[7px] overflow-hidden bg-rule">
@@ -445,5 +448,47 @@ function Msg({ children }) {
     <div className="animate-screen-in px-[18px] pt-4">
       <div className="panel p-[14px] text-[12.5px] text-mute">{children}</div>
     </div>
+  );
+}
+
+/**
+ * The credit master as a spreadsheet.
+ *
+ * Two sheets: every party with its term and ageing, and a summary counting
+ * parties and money per credit term — which is the question the client
+ * actually asked ("how many parties are on 30 days, how many on 60"). Figures
+ * go out as numbers, not as "₹52.03 L", because the point of a spreadsheet is
+ * that it can be summed and sorted.
+ */
+function ExportButton({ parties }) {
+  const [state, setState] = useState('idle');
+
+  async function run() {
+    setState('working');
+    try {
+      const { exportCreditMaster } = await import('../../lib/exportExcel.js');
+      await exportCreditMaster(parties ?? []);
+      setState('done');
+      setTimeout(() => setState('idle'), 2500);
+    } catch (e) {
+      console.error('Export failed:', e);
+      setState('failed');
+      setTimeout(() => setState('idle'), 4000);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="btn btn-secondary px-[10px] py-[4px] text-[11.5px]"
+      onClick={run}
+      disabled={state === 'working' || !parties?.length}
+      title="Downloads an .xlsx with every party's credit term, plus a summary by term"
+    >
+      {state === 'working' ? 'Building…'
+        : state === 'done' ? 'Downloaded'
+        : state === 'failed' ? 'Export failed — see console'
+        : 'Export to Excel'}
+    </button>
   );
 }

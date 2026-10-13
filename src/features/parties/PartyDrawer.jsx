@@ -7,6 +7,7 @@ import { latestSnapshotQuery, partyBillsQuery, partyActivityQuery } from '../../
 import { formatInr, formatCount, formatAge, formatDate, formatCreditTerm, formatPct } from '../../lib/format.js';
 import AgeingStrip, { bucketsOf, TermBadge, BUCKET_LABELS } from '../../components/AgeingStrip.jsx';
 import Overlay from '../../components/Overlay.jsx';
+import { Stars, StarPicker } from '../../components/StarRating.jsx';
 import { AFTER, invalidate } from '../../lib/cache.js';
 
 /**
@@ -27,7 +28,10 @@ export default function PartyDrawer({ party, onClose }) {
       <aside className="overlay-panel overlay-drawer flex w-[min(560px,92vw)] flex-col border-l border-hair bg-canvas shadow-[0_0_40px_rgba(15,31,46,.22)]">
         <header className="flex items-start gap-3 border-b border-hair bg-surface/80 px-[18px] py-3 backdrop-blur">
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[16px] font-semibold tracking-[-0.015em]">{party.display_name}</h2>
+            <h2 className="flex items-center gap-[7px] truncate text-[16px] font-semibold tracking-[-0.015em]">
+              <span className="truncate">{party.display_name}</span>
+              <Stars value={party.star_rating} size={13} />
+            </h2>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <TermBadge row={party} />
               {party.is_credit_balance ? (
@@ -540,19 +544,24 @@ function Standing({ party, onSaved }) {
   const [category, setCategory] = useState(party.category ?? '');
   const [status, setStatus] = useState(party.status ?? 'active');
   const [note, setNote] = useState(party.status_note ?? '');
+  const [stars, setStars] = useState(party.star_rating ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   const statusChanged = status !== (party.status ?? 'active');
   const dirty =
-    category !== (party.category ?? '') || statusChanged || note !== (party.status_note ?? '');
-  const needsNote = statusChanged && !note.trim();
+    category !== (party.category ?? '') || statusChanged ||
+    note !== (party.status_note ?? '') || (stars ?? null) !== (party.star_rating ?? null);
   const meaning = STATUSES.find(([v]) => v === status)?.[2];
 
   async function save() {
     setSaving(true);
     setError(null);
     const patch = { category: category || null };
+    if ((stars ?? null) !== (party.star_rating ?? null)) {
+      patch.star_rating = stars ?? null;
+      patch.star_set_on = stars ? new Date().toISOString().slice(0, 10) : null;
+    }
     if (statusChanged || note !== (party.status_note ?? '')) {
       patch.status = status;
       patch.status_note = note.trim() || null;
@@ -590,16 +599,26 @@ function Standing({ party, onSaved }) {
         <button
           type="button"
           className="btn btn-primary px-3 py-[4px] text-[12px]"
-          disabled={!dirty || needsNote || saving}
+          disabled={!dirty || saving}
           onClick={save}
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
 
+      {/*
+        * The note is asked for, not demanded.
+        *
+        * It was required, and a required field with a silently disabled Save
+        * button reads as a broken screen: the desk reported that no status
+        * other than Active could be set, which is exactly what it looks like
+        * when the button does nothing and nothing says why. A note on a legal
+        * escalation is worth having, but not at the price of the whole
+        * control appearing not to work.
+        */}
       <label className="mt-2 block">
         <span className="kicker mb-1 block">
-          Note{statusChanged ? ' — required when the status changes' : ''}
+          Note{statusChanged ? ' — worth adding, especially for a legal step' : ''}
         </span>
         <input
           value={note}
@@ -608,6 +627,15 @@ function Standing({ party, onSaved }) {
           className="w-full rounded-[2px] border border-hair px-[8px] py-[4px] text-[12px]"
         />
       </label>
+
+      <div className="mt-3 border-t border-rule pt-3">
+        <span className="kicker mb-[6px] block">Rating — what the desk thinks of them</span>
+        <StarPicker value={stars} onChange={setStars} disabled={saving} />
+        <p className="mt-[6px] text-[11px] text-faint text-pretty">
+          Your judgement, not a computed score. "How this party pays" above is the computed one,
+          measured from bills that actually settled — where the two disagree, both are worth knowing.
+        </p>
+      </div>
 
       <p className="mt-2 text-[11px] text-faint text-pretty">
         {meaning}

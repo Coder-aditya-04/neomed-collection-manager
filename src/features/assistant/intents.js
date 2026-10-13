@@ -65,8 +65,17 @@ export function parseAmount(text) {
   }
 
   // A bare number, but only when it is not obviously a count of days.
-  const bare = /(?:ABOVE|OVER|MORE THAN|GREATER THAN|ATLEAST|AT LEAST|RS|INR|₹)\s*(\d+)(?!\s*(?:DAY|MONTH|YEAR))/.exec(s);
+  const bare =
+    /(?:ABOVE|OVER|MORE THAN|GREATER THAN|ATLEAST|AT LEAST|UNDER|BELOW|LESS THAN|UPTO|UP TO|SMALLER THAN|RS|INR|₹)\s*(\d+)(?!\s*(?:DAY|MONTH|YEAR))/.exec(s);
   if (bare) return Number.parseInt(bare[1], 10);
+
+  /*
+   * The currency word trails the figure as often as it leads it — people
+   * write "100 rs pending" at least as readily as "rs 100". The day guard
+   * still applies on the other side, so "3 days" is never read as money.
+   */
+  const trailing = /(?<!\d)(\d+)\s*(?:RS|RUPEES|INR)\b/.exec(s);
+  if (trailing) return Number.parseInt(trailing[1], 10);
 
   return null;
 }
@@ -198,6 +207,32 @@ const INTENTS = [
     ],
   },
   {
+    /*
+     * Credit-term questions, including the compound the desk asks: "parties
+     * under 100 rupees pending on 3 days credit". Matched before the amount
+     * intents so the whole question is answered, not just its amount half.
+     */
+    intent: 'by_credit_term',
+    patterns: [
+      /\d+\s*DAYS?\s*(CREDIT|TERM)/, /(CREDIT|TERM)\s*(OF|IS)?\s*\d+\s*DAYS?/,
+      /\bON \d+ DAYS?\b/, /CREDIT CYCLE/, /WHICH PARTIES ARE ON/,
+      /\d+\s*DAY (PARTY|PARTIES|CLIENT)/,
+    ],
+  },
+  {
+    intent: 'by_rating',
+    patterns: [
+      /\d\s*STAR/, /\bFRAUD\b/, /BAD FOR PAYMENT/, /BAD PAY/,
+      /PROMPT PAY/, /\bRATING\b/, /\bRATED\b/, /NOT RATED/, /UNRATED/,
+    ],
+  },
+  {
+    intent: 'below_amount',
+    patterns: [
+      /\b(UNDER|BELOW|LESS THAN|UPTO|UP TO|SMALLER THAN)\b.{0,20}(LAKH|CRORE|\bCR\b|\bL\b|\d)/,
+    ],
+  },
+  {
     intent: 'credit_balance_parties',
     patterns: [/CREDIT BALANCE/, /NEGATIVE BALANCE/, /ADVANCE/, /IN CREDIT/],
   },
@@ -319,6 +354,26 @@ export function matchIntent(question, parties = []) {
   return { intent: 'unmatched', params: { question: raw } };
 }
 
+/*
+ * The rating a question is asking about. Words first, because people say
+ * "fraud parties" far more often than "1 star parties".
+ */
+export function parseStars(text) {
+  const t = String(text ?? '').toUpperCase();
+  if (/NOT RATED|UNRATED|NO RATING/.test(t)) return 0;
+  if (/FRAUD|DEFAULTER PART/.test(t)) return 1;
+  if (/BAD FOR PAYMENT|BAD PAY/.test(t)) return 2;
+  if (/CREDIT ORIENT/.test(t)) return 3;
+  if (/GENUINE/.test(t)) return 4;
+  if (/PROMPT/.test(t)) return 5;
+  const m = t.match(/(\d)\s*STAR/);
+  if (m) {
+    const n = Number(m[1]);
+    if (n >= 1 && n <= 5) return n;
+  }
+  return null;
+}
+
 function paramsFor(intent, raw) {
   switch (intent) {
     case 'top_parties':
@@ -331,6 +386,25 @@ function paramsFor(intent, raw) {
       return { limit: parseCount(raw, 10) };
     case 'needs_credit_term':
       return { limit: 20 };
+    case 'below_amount':
+      return { amount: parseAmount(raw) ?? 10000 };
+    /*
+     * Both halves of the question, because the desk asks them together:
+     * "parties under 100 rupees pending on 3 days credit". The amount is
+     * only taken when a limiting word is present, so "30 days credit" is
+     * not read as "30 rupees".
+     */
+    case 'by_credit_term':
+      return {
+        days: parseDays(raw),
+        // Uppercased: `raw` is what the person typed, which is normally
+        // lower case, and this pattern is upper case like every other one here.
+        amount: /\b(UNDER|BELOW|LESS THAN|UPTO|UP TO)\b/.test(String(raw).toUpperCase())
+          ? parseAmount(raw)
+          : null,
+      };
+    case 'by_rating':
+      return { stars: parseStars(raw) };
     default:
       return {};
   }
@@ -369,6 +443,9 @@ export const CAPABILITY_GROUPS = [
       { intent: 'broken_promises', example: 'Who did not keep their promise?' },
       { intent: 'missed_followups', example: 'Which follow-ups were missed?' },
       { intent: 'unapplied_receipts', example: 'Which parties have a difference to settle?' },
+  { intent: 'by_credit_term', example: 'Which parties are on 30 days credit?' },
+  { intent: 'below_amount', example: 'Parties under ₹1,500' },
+  { intent: 'by_rating', example: 'Show the 1 star parties' },
     ],
   },
   {

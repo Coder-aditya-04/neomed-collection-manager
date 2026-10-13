@@ -172,8 +172,16 @@ export function AgeingStripLarge({ buckets, bills }) {
 
 /** The three credit-term states, rendered the same way everywhere (rule 2). */
 export function TermBadge({ row }) {
+  /*
+   * Readable first. This was 9.5px uppercase monospace reading "60D ·
+   * APPROVED", and the desk could not tell the terms apart at a glance —
+   * which is the only thing the badge is for. It is now 11px, sentence case,
+   * and the number is spelt as "60 days" rather than compressed to "60D".
+   * The term itself is the part worth reading, so it carries the weight and
+   * the approval state follows it in lighter type.
+   */
   const base =
-    'inline-block font-mono text-[9.5px] font-medium uppercase tracking-[0.04em] px-[7px] py-[2px] whitespace-nowrap rounded-[2px]';
+    'inline-flex items-baseline gap-[5px] text-[11px] px-[8px] py-[2px] whitespace-nowrap rounded-[3px] border';
 
   /*
    * Some rows carry the term, some only carry whether it was assumed — the
@@ -183,44 +191,66 @@ export function TermBadge({ row }) {
    */
   if (row && row.credit_source === undefined) {
     return row.term_is_assumed ? (
-      <span className={`${base} border border-dashed border-[#C9A93E] bg-surface text-[#7A6410]`}
+      <span className={`${base} border-dashed border-[#C9A93E] bg-surface text-[#7A6410]`}
             title="A category default, not an approved term">
-        Assumed term
+        <span className="font-medium">Assumed</span>
       </span>
     ) : (
-      <span className={`${base} border border-[rgba(0,133,122,.30)] bg-[rgba(0,133,122,.10)] text-teal-deep`}>
-        Approved term
+      <span className={`${base} border-[rgba(0,133,122,.30)] bg-[rgba(0,133,122,.10)] text-teal-deep`}>
+        <span className="font-medium">Approved</span>
       </span>
     );
   }
 
   if (!row || row.credit_source === 'not_set') {
     return (
-      <span className={`${base} border border-hair border-l-[3px] border-l-[#8A98A4] bg-[#F0F3F6] text-[#4A5A68]`}>
-        Term not set
+      <span className={`${base} border-hair border-l-[3px] border-l-[#8A98A4] bg-[#F0F3F6] text-[#4A5A68]`}>
+        <span className="font-medium">Term not set</span>
       </span>
     );
   }
+
   const text = termText(row);
   if (row.credit_source === 'category_default') {
     return (
-      <span className={`${base} border border-dashed border-[#C9A93E] bg-surface text-[#7A6410]`} title="A category default, not an approved term">
-        {text} · assumed
+      <span className={`${base} border-dashed border-[#C9A93E] bg-surface text-[#7A6410]`}
+            title="A category default, not an approved term">
+        <span className="font-medium">{text}</span>
+        <span className="text-[9.5px] uppercase tracking-[0.06em] opacity-70">assumed</span>
       </span>
     );
   }
   return (
-    <span className={`${base} border border-[rgba(0,133,122,.30)] bg-[rgba(0,133,122,.10)] text-teal-deep`}>
-      {text} · approved
+    <span className={`${base} border-[rgba(0,133,122,.30)] bg-[rgba(0,133,122,.10)] text-teal-deep`}>
+      <span className="font-medium">{text}</span>
+      <span className="text-[9.5px] uppercase tracking-[0.06em] opacity-70">approved</span>
     </span>
   );
 }
 
+/*
+ * Spelt out. "60D" and "90D" are hard to tell apart in a column of a hundred
+ * rows at 9.5px; "60 days" and "90 days" are not, and the width costs little.
+ */
 function termText(row) {
-  if (row.credit_type === 'days') return `${row.credit_days}d`;
-  if (row.credit_type === 'cycle') {
-    const lag = row.cycle_lag_months === 0 ? 'same' : row.cycle_lag_months === 1 ? 'next' : `+${row.cycle_lag_months}m`;
-    return `by ${row.cycle_submit_day} · pay ${row.cycle_pay_day} ${lag}`;
+  if (row.credit_type === 'days') {
+    const d = Number(row.credit_days);
+    return d === 0 ? 'Cash' : `${d} days`;
   }
-  return 'term not set';
+  if (row.credit_type === 'cycle') {
+    const lag =
+      row.cycle_lag_months === 0 ? 'same month'
+      : row.cycle_lag_months === 1 ? 'next month'
+      : `+${row.cycle_lag_months} months`;
+    return `By ${ordinal(row.cycle_submit_day)}, paid ${ordinal(row.cycle_pay_day)} ${lag}`;
+  }
+  return 'Term not set';
+}
+
+function ordinal(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return String(n);
+  const s = ['th', 'st', 'nd', 'rd'];
+  const r = v % 100;
+  return v + (s[(r - 20) % 10] ?? s[r] ?? s[0]);
 }
