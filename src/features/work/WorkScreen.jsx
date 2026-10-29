@@ -35,9 +35,28 @@ export default function WorkScreen() {
   const billsQ = useQuery({
     queryKey: ['work-bucket', bucket],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('fn_bucket_bills', { p_bucket: bucket, p_limit: 6000 });
-      if (error) throw error;
-      return data ?? [];
+      /*
+       * Paged. PostgREST caps any response at 1,000 rows regardless of the
+       * function's own limit, and the 180+ band alone holds more invoices
+       * than that — the screen said "1,000 invoices" with a straight face.
+       * Rows are de-duplicated on (party, bill) as a guard against a page
+       * boundary falling between two rows that sort identically.
+       */
+      const PAGE = 1000;
+      const seen = new Set();
+      const all = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .rpc('fn_bucket_bills', { p_bucket: bucket, p_limit: 20000 })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        for (const r of data ?? []) {
+          const k = `${r.party_id}|${r.bill_no}`;
+          if (!seen.has(k)) { seen.add(k); all.push(r); }
+        }
+        if (!data || data.length < PAGE) break;
+      }
+      return all;
     },
   });
 

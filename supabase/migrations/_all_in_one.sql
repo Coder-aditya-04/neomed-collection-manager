@@ -2991,7 +2991,9 @@ as $$
           when 'over_60'      then od > 60
           else true
         end
-  order by current_outstanding desc, display_name, od desc
+  -- bill_no last: a total order, so paging through this from the client
+  -- cannot repeat or skip a row at a page boundary.
+  order by current_outstanding desc, display_name, od desc, bill_no
   limit greatest(p_limit, 0);
 $$;
 
