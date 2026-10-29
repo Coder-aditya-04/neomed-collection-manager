@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   latestSnapshotQuery,
@@ -8,9 +8,10 @@ import {
   partiesAgeingQuery,
 } from '../../lib/queries.js';
 import { formatInr, formatCount, formatAge, formatDate, formatPct } from '../../lib/format.js';
-import AgeingStrip, { AgeingStripLarge, bucketsOf, bucketsFromRow, TermBadge } from '../../components/AgeingStrip.jsx';
+import AgeingStrip, { AgeingStripLarge, bucketsFromRow, TermBadge, BUCKET_KEYS } from '../../components/AgeingStrip.jsx';
 
 export default function DashboardScreen() {
+  const navigate = useNavigate();
   const { data: snapshot, isLoading: loadingSnap } = useQuery(latestSnapshotQuery());
   const { data: portfolio } = useQuery(portfolioAgeingQuery());
   const { data: priority } = useQuery(priorityListQuery(6));
@@ -97,12 +98,12 @@ export default function DashboardScreen() {
         <div className="mb-[10px] flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Portfolio ageing</h2>
           <span className="font-mono text-[9.5px] uppercase tracking-[0.05em] text-faint">
-            Measured against approved terms · money with no term is excluded
+            Click a band to work those parties · measured against approved terms
           </span>
         </div>
 
         {judgeable > 0 ? (
-          <AgeingStripLarge buckets={buckets} />
+          <AgeingStripLarge buckets={buckets} onSelect={(i) => navigate(`/work?bucket=${BUCKET_KEYS[i]}`)} />
         ) : (
           <div className="border-l-[3px] border-l-[#C9A93E] bg-surface p-3">
             <div className="kicker text-[#7A6410]">No strip to draw yet</div>
@@ -160,7 +161,7 @@ export default function DashboardScreen() {
                 <span className="tnum pt-px text-right text-[14px] font-medium text-faint">{i + 1}</span>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[13.5px] font-semibold">{p.display_name}</span>
+                    <Link to={`/parties/${p.party_id}`} className="text-[13.5px] font-semibold text-ink no-underline hover:underline">{p.display_name}</Link>
                     {/*
                       * Passed as-is. This used to synthesise a credit_source of
                       * 'approved', which told the badge the term was approved

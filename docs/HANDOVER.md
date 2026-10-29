@@ -60,8 +60,14 @@ never been recorded.
 **Credit master.** Where the terms get typed in, largest parties first, so the
 work is finite: the top hundred rows cover most of the money.
 
-**Registers.** Claims grouped by who owes the internal action; follow-ups
-ordered missed first; promises, which close only when a payment supports them.
+**Follow-ups.** One live thread per party. A call, visit or WhatsApp starts
+or continues it; a *remark* adds what was said today without closing it;
+*close* asks why, and the reason stays in the log. Filter by person to see
+your own.
+
+**Work a band.** Click any band on Today's ageing strip — the ₹1.10 Cr at
+180+, say — and the parties and invoices behind it open as a worklist, with
+ring / remark / close on each.
 
 **To allocate.** The "difference" parties: money received that Marg holds
 against the party's name without it being applied to any particular bill —
@@ -135,44 +141,38 @@ one thing only Neomed can supply.
 
 ## Adding someone to the system
 
-Two steps, because a login and a role are separate things. A person who has
-one without the other cannot work: no login means no access at all, and no
-role means they can sign in but every screen refuses them.
+Settings → **Users and logins**. Two things, kept apart on purpose:
 
-**1. Create the login.** In Supabase → **Authentication** → **Users** →
-*Add user* → *Create new user*. Enter their email and a password, and tick
-**Auto Confirm User** — without it they will be sent a confirmation mail that
-may never arrive. Copy the **UID** that appears against the new row.
+- A **person** can be assigned parties and appears in every report. Adding one
+  takes a name and a role. No login needed — most of the recovery desk works
+  this way.
+- A **login** is an email and password that signs in as that person. Add it
+  when the person is created, or later with *Give a login* against their name:
+  everything already recorded against them moves with them.
 
-**2. Give them a role.** Supabase → **SQL Editor**, and run:
-
-```sql
-insert into app_users (id, full_name, role)
-values ('<the UID you copied>', 'Full Name', 'sales');
-```
-
-`role` must be exactly one of:
+Roles, enforced by the database rather than by hiding buttons:
 
 | Role | Can do |
 |---|---|
-| `owner` | Everything, including settings, targets and managing users |
-| `accounts` | Everything except settings and roles — imports, credit terms, claims |
-| `sales` | Log calls, follow-ups and promises. Cannot change credit terms or import |
+| Owner | Everything, including users, roles and settings |
+| Accounts | Everything except users and settings — imports, credit terms, claims |
+| Recovery | Log calls, remarks, follow-ups and promises on any party |
 
-The roles are enforced by the database itself, not by hiding buttons. A sales
-user who tried to change a credit term through any other route would still be
-refused.
+**One-time setup in Supabase**, so logins can be created from inside the app:
+Authentication → Providers → Email → **Allow new users to sign up** on, and
+**Confirm email** off. Without the second, a new person is sent a
+confirmation mail and cannot sign in until they click it.
 
-**To change somebody's role** — `update app_users set role = 'accounts' where
-id = '<UID>';`
+A login by itself grants nothing. Someone who signs up without being on the
+Users list can read and write nothing at all — only the owner can add them.
 
-**To remove somebody** — delete them in Authentication → Users. Their row in
-`app_users` goes with them, but every call, promise and claim they recorded
-stays, because that history belongs to the party and not to the employee.
+**Passwords.** Write the password down for the person when you create it;
+it is not stored anywhere readable. To reset one: Supabase → Authentication →
+Users → the three dots against their row → *Send password recovery*.
 
-**Passwords.** People change their own display name in Settings. For a
-password reset, use Supabase → Authentication → Users → the three dots
-against their row → *Send password recovery*.
+**Who did what.** Every call, remark and close carries the name of the person
+who made it. Every change to a party's record — status, rating, term, owner,
+contact — is logged with who changed it, and shows on the party's timeline.
 
 ---
 

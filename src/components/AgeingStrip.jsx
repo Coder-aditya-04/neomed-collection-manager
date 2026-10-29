@@ -24,6 +24,10 @@ export const BUCKET_LABELS = [
   '90–120 over', '120–180 over', '180+ over',
 ];
 export const BUCKET_SHORT = ['In terms', '0–30', '30–60', '60–90', '90–120', '120–180', '180+'];
+/** The database's name for each segment, for drilling into one. */
+export const BUCKET_KEYS = [
+  'within_terms', 'over_1_30', 'over_31_60', 'over_61_90', 'over_91_120', 'over_121_180', 'over_180',
+];
 
 /*
  * A number, or zero — never NaN.
@@ -128,18 +132,26 @@ export default function AgeingStrip({ buckets, height = 8, width, title }) {
  * The legend is also what makes the ramp legible to a colourblind reader and
  * in print: identity is never left to colour alone.
  */
-export function AgeingStripLarge({ buckets, bills }) {
+export function AgeingStripLarge({ buckets, bills, onSelect }) {
   const values = buckets ?? [];
   const total = values.reduce((a, b) => a + Math.abs(b), 0);
+  /*
+   * With onSelect every segment and every legend entry is a button: the
+   * desk's question on seeing ₹1.10 Cr at 180+ is "which parties", and the
+   * answer should be one click away, not a trip through the parties list.
+   */
+  const Seg = onSelect ? 'button' : 'div';
 
   return (
     <div>
       <div className="flex h-[30px] gap-[2px]">
         {values.map((v, i) => (
-          <div
+          <Seg
             key={i}
-            title={`${BUCKET_LABELS[i]} — ${formatInr(v)} · ${formatPct(Math.abs(v), total)}`}
-            className="min-w-[3px] rounded-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,.3)]"
+            type={onSelect ? 'button' : undefined}
+            onClick={onSelect ? () => onSelect(i) : undefined}
+            title={`${BUCKET_LABELS[i]} — ${formatInr(v)} · ${formatPct(Math.abs(v), total)}${onSelect ? ' · click to work these' : ''}`}
+            className={`min-w-[3px] rounded-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,.3)] ${onSelect ? 'cursor-pointer transition-[filter] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-teal/50' : ''}`}
             style={{
               flexGrow: Math.max((Math.abs(v) / (total || 1)) * 100, 0.6),
               flexBasis: 0,
@@ -151,7 +163,9 @@ export function AgeingStripLarge({ buckets, bills }) {
 
       <div className="mt-[11px] grid grid-cols-[repeat(auto-fit,minmax(118px,1fr))] gap-x-4 gap-y-[9px]">
         {values.map((v, i) => (
-          <div key={i} className="min-w-0">
+          <Seg key={i} type={onSelect ? 'button' : undefined}
+               onClick={onSelect ? () => onSelect(i) : undefined}
+               className={`min-w-0 text-left ${onSelect ? 'cursor-pointer rounded-[3px] -mx-1 px-1 hover:bg-surface-3' : ''}`}>
             <div className="flex items-center gap-[6px]">
               <span className="h-[8px] w-[8px] flex-none rounded-[2px]" style={{ background: BUCKET_COLORS[i] }} />
               <span className="truncate text-[10px] uppercase tracking-[0.06em] text-mute">
@@ -162,8 +176,9 @@ export function AgeingStripLarge({ buckets, bills }) {
             <div className="tnum truncate pl-[14px] text-[10px] text-faint">
               {formatPct(Math.abs(v), total)}
               {bills ? ` · ${bills[i]}` : ''}
+              {onSelect ? ' · open →' : ''}
             </div>
-          </div>
+          </Seg>
         ))}
       </div>
     </div>

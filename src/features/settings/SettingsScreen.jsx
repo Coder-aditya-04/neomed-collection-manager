@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
 import { formatInr, formatCount, formatDate } from '../../lib/format.js';
 import { AFTER, invalidate } from '../../lib/cache.js';
+import Users from './Users.jsx';
 
 /**
  * Users and roles, the thresholds the rules read, the category defaults, and
@@ -95,34 +96,8 @@ export default function SettingsScreen({ session }) {
         <YourAccount session={session} />
       </Section>
 
-      <Section title="Team">
-        <table className="w-full border-collapse text-[12px]">
-          <thead>
-            <tr>
-              <Th>Name</Th><Th>Role</Th><Th>Can write</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {(users ?? []).map((u) => (
-              <tr key={u.id} className="border-b border-rule last:border-b-0">
-                <td className="px-[10px] py-[6px] font-medium">{u.full_name}</td>
-                <td className="px-[10px] py-[6px]">{u.role}</td>
-                <td className="px-[10px] py-[6px] text-mute">
-                  {u.role === 'owner'
-                    ? 'everything, including settings and roles'
-                    : u.role === 'accounts'
-                      ? 'credit terms, claims, follow-ups, promises, imports'
-                      : 'follow-ups and promises only'}
-                </td>
-              </tr>
-            ))}
-            {!users?.length ? <tr><td colSpan={3} className="px-[10px] py-3 text-faint">No users yet.</td></tr> : null}
-          </tbody>
-        </table>
-        <p className="mt-2 px-[10px] text-[11px] text-faint text-pretty">
-          Roles are enforced by the database, not by the interface. A salesperson cannot write a
-          credit term even if they reach the API directly.
-        </p>
+      <Section title="Users and logins">
+        <Users />
       </Section>
 
       <Section title="Recovery targets">
@@ -235,8 +210,10 @@ export default function SettingsScreen({ session }) {
  */
 function Targets({ users }) {
   const qc = useQueryClient();
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    .toISOString().slice(0, 10);
+  // Built from local parts: toISOString() converts to UTC first, and in IST
+  // that turned the 1st of the month into the 30th of the previous one.
+  const now = new Date();
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
 
   const { data: targets } = useQuery({
     queryKey: ['recovery-targets', monthStart],

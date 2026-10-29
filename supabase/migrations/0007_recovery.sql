@@ -77,7 +77,11 @@ create index if not exists recovery_targets_user_idx on recovery_targets (user_i
 -- -------------------------------------------------------------------
 -- v_recovery_activity — every logged contact, with who and what was said
 -- -------------------------------------------------------------------
-create or replace view v_recovery_activity as
+-- Dropped first: a later migration widens this view, and Postgres refuses
+-- to replace a view with fewer columns than it has. Without the drop, re-
+-- running the migrations in order fails here.
+drop view if exists v_recovery_activity;
+create view v_recovery_activity as
 select
   f.id,
   f.party_id,

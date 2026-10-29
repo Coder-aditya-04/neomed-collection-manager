@@ -380,7 +380,19 @@
    * transform. The entrance animates `scale` and `opacity` only, so it cannot
    * clobber the centring the way a keyframe ending in `transform: none` would.
    */
+  /*
+   * position: absolute is set HERE, not inherited from .overlay-panel.
+   *
+   * It used to come only from .overlay-panel, and two dialogs were written
+   * with .overlay-center alone. Without the positioning, left/top did nothing
+   * and translate(-50%,-50%) pushed the dialog off the top-left of the screen
+   * — while the backdrop still covered the page and swallowed every click.
+   * The desk reported "the screen freezes when I press Close". A class whose
+   * correctness depends on remembering a second class is a trap; it carries
+   * its own now.
+   */
   .overlay-center {
+    position: absolute;
     left: 50%;
     top: 50%;
     translate: -50% -50%;

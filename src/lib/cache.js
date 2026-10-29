@@ -14,10 +14,11 @@ export const PARTY_DERIVED = ['priority-list', 'portfolio-ageing', 'needs-credit
 
 export const AFTER = {
   // Credit terms move the ageing, so everything derived from it is stale.
-  creditTerm: ['parties-ageing', ...PARTY_DERIVED],
+  creditTerm: ['parties-ageing', ...PARTY_DERIVED, 'audit', 'party-activity', 'work-bucket'],
   // Contact details and ownership change the party row and nothing else.
-  partyDetails: ['parties-ageing', 'unallocated'],
-  followup: ['followups', 'party-activity', 'recovery-activity', 'scorecard', 'due-today'],
+  partyDetails: ['parties-ageing', 'unallocated', 'audit', 'party-activity'],
+  followup: ['followups', 'party-activity', 'recovery-activity', 'scorecard', 'due-today',
+             'recovery-tally', 'threads', 'work-bucket', 'audit'],
   promise: ['promises', 'party-activity', 'scorecard'],
   claim: ['claims', 'party-activity', 'priority-list'],
   settings: ['settings', 'priority-list'],

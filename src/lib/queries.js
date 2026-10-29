@@ -60,10 +60,18 @@ export function partiesAgeingQuery() {
         let from = 0;
         const all = [];
         for (;;) {
+          /*
+           * party_id as the tiebreak. Paging by outstanding alone is not a
+           * stable order — hundreds of parties share a balance of zero — and
+           * Postgres may return them in a different order on each page, so
+           * one party appears twice and another never. The credit master
+           * then summed more than the book held.
+           */
           const { data, error } = await supabase
             .from(view)
             .select('*')
             .order('current_outstanding', { ascending: false })
+            .order('party_id', { ascending: true })
             .range(from, from + PAGE - 1);
           if (error) throw error;
           all.push(...(data ?? []));

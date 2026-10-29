@@ -314,7 +314,7 @@ function LogFollowUp({ party, onSaved }) {
  * what it can and cannot say, and asks for the term — it never fills the gap
  * with bill age dressed up as lateness.
  */
-function StopRule({ party }) {
+export function StopRule({ party }) {
   return (
     <div className="border-l-[3px] border-l-[#C9A93E] bg-surface p-3">
       <div className="kicker text-[#7A6410]">Cannot be aged</div>
@@ -340,7 +340,7 @@ function StopRule({ party }) {
  * because a party is what a person actually carries — the calls, the promises
  * and the claims all follow from it.
  */
-function Assignment({ party, onSaved }) {
+export function Assignment({ party, onSaved }) {
   const { data: team } = useQuery({
     queryKey: ['app-users'],
     queryFn: async () => {
@@ -387,7 +387,7 @@ function Assignment({ party, onSaved }) {
  * contact details and the import payload never includes them, so nothing a
  * daily file does can overwrite what is typed in.
  */
-function Contact({ party, onSaved }) {
+export function Contact({ party, onSaved }) {
   const [value, setValue] = useState(party.phone ?? '');
   const [person, setPerson] = useState(party.contact_person ?? '');
   const [saving, setSaving] = useState(false);
@@ -457,7 +457,7 @@ function Contact({ party, onSaved }) {
   );
 }
 
-function Section({ title, children }) {
+export function Section({ title, children }) {
   return (
     <section className="mt-4">
       <h3 className="mb-2 text-[13px] font-semibold tracking-[-0.01em]">{title}</h3>
@@ -466,7 +466,7 @@ function Section({ title, children }) {
   );
 }
 
-function Fig({ label, value, tone }) {
+export function Fig({ label, value, tone }) {
   return (
     <div className="bg-surface/80 px-3 py-2">
       <div className="kicker">{label}</div>
@@ -540,7 +540,7 @@ export const STATUSES = [
  * or a date is the kind of record that looks informative and answers nothing
  * six weeks later, when somebody has to decide what happens next.
  */
-function Standing({ party, onSaved }) {
+export function Standing({ party, onSaved }) {
   const [category, setCategory] = useState(party.category ?? '');
   const [status, setStatus] = useState(party.status ?? 'active');
   const [note, setNote] = useState(party.status_note ?? '');
@@ -657,7 +657,7 @@ function Standing({ party, onSaved }) {
  * from two bills is exactly the kind of figure somebody repeats in a
  * negotiation.
  */
-function Behaviour({ party }) {
+export function Behaviour({ party }) {
   const { data, isLoading } = useQuery({
     queryKey: ['party-profile', party.party_id],
     queryFn: async () => {

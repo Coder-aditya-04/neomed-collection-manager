@@ -48,18 +48,21 @@ const STAR_LABEL = {
 export async function exportCreditMaster(parties, { reportDate } = {}) {
   const XLSX = await import('xlsx');
 
+  /*
+   * One column per fact. The first cut carried "Credit term", "Term type",
+   * "Credit days", "Submit by", "Paid on" and "Months later" side by side —
+   * the same term six ways — and the desk asked for the duplicates to go.
+   * The human-readable term stays; the pieces it is built from do not.
+   */
   const rows = parties.map((p) => ({
     'Party': p.display_name,
     'Category': p.category ?? '',
     'Credit term': termLabel(p),
-    'Term type': p.credit_type ?? 'none',
-    'Credit days': p.credit_type === 'days' ? Number(p.credit_days) : null,
-    'Submit by': p.credit_type === 'cycle' ? Number(p.cycle_submit_day) : null,
-    'Paid on': p.credit_type === 'cycle' ? Number(p.cycle_pay_day) : null,
-    'Months later': p.credit_type === 'cycle' ? Number(p.cycle_lag_months) : null,
     'Term status': SOURCE_LABEL[p.credit_source] ?? p.credit_source,
     'Rating': p.star_rating ? STAR_LABEL[p.star_rating] : '',
-    'Collection status': p.status ?? '',
+    'Follow-up by': p.responsible_name ?? '',
+    'Collection status': (p.status ?? '').replaceAll('_', ' '),
+    'Statement': p.statement_mode === 'physical' ? 'Physical' : p.statement_mode === 'do_not_send' ? 'Do not send' : 'WhatsApp',
     'Outstanding': Number(p.current_outstanding),
     'Open bills': Number(p.bill_count ?? 0),
     'Oldest bill (days)': p.oldest_bill_age_days == null ? null : Number(p.oldest_bill_age_days),
@@ -73,7 +76,6 @@ export async function exportCreditMaster(parties, { reportDate } = {}) {
     '180+ over': p.needs_credit_term ? null : Number(p.over_180 ?? 0),
     'Phone': p.phone ?? '',
     'Contact person': p.contact_person ?? '',
-    'Owner': p.responsible_name ?? '',
   }));
 
   /*
@@ -127,9 +129,9 @@ export async function exportCreditMaster(parties, { reportDate } = {}) {
 
   const wsAll = XLSX.utils.json_to_sheet(rows);
   wsAll['!cols'] = [
-    { wch: 40 }, { wch: 13 }, { wch: 30 }, { wch: 10 }, { wch: 11 }, { wch: 10 }, { wch: 9 },
-    { wch: 12 }, { wch: 26 }, { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 10 }, { wch: 16 },
-    { wch: 14 }, ...Array(7).fill({ wch: 13 }), { wch: 14 }, { wch: 18 }, { wch: 16 },
+    { wch: 40 }, { wch: 13 }, { wch: 30 }, { wch: 26 }, { wch: 28 }, { wch: 16 }, { wch: 18 },
+    { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 14 },
+    ...Array(7).fill({ wch: 13 }), { wch: 14 }, { wch: 18 },
   ];
   wsAll['!freeze'] = { xSplit: 1, ySplit: 1 };
   XLSX.utils.book_append_sheet(wb, wsAll, 'Credit master');
@@ -138,4 +140,35 @@ export async function exportCreditMaster(parties, { reportDate } = {}) {
   XLSX.writeFile(wb, `Neomed credit master ${stamp}.xlsx`);
 
   return { parties: rows.length, terms: groups.size };
+}
+
+/**
+ * The To-allocate list for accounts to work from — one row per party, the
+ * unapplied amount, how many receipts it is made of, and who has already
+ * dealt with it on this import.
+ */
+export async function exportUnallocated(rows, reportDate) {
+  const XLSX = await import('xlsx');
+  const data = rows.map((r) => ({
+    'Party': r.display_name,
+    'Received, unapplied': Number(r.unallocated),
+    'Receipts': Number(r.receipt_count ?? 0),
+    'Oldest receipt': r.oldest_receipt ?? '',
+    'Newest receipt': r.newest_receipt ?? '',
+    'Marg balance': Number(r.marg_balance),
+    'Open bills': Number(r.bill_count ?? 0),
+    'Oldest bill (days)': r.oldest_bill_age_days == null ? null : Number(r.oldest_bill_age_days),
+    'Phone': r.phone ?? '',
+    'Contact person': r.contact_person ?? '',
+    'Worked by': r.worked_by ?? '',
+    'Note': r.worked_note ?? '',
+  }));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{ wch: 40 }, { wch: 18 }, { wch: 9 }, { wch: 13 }, { wch: 13 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 14 }, { wch: 30 }];
+  ws['!freeze'] = { xSplit: 1, ySplit: 1 };
+  XLSX.utils.book_append_sheet(wb, ws, 'To allocate');
+  const stamp = (reportDate ?? new Date().toISOString().slice(0, 10)).replaceAll('-', '');
+  XLSX.writeFile(wb, `Neomed to-allocate ${stamp}.xlsx`);
+  return { parties: data.length };
 }

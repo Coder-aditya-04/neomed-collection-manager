@@ -4,7 +4,10 @@ import { supabase } from '../../lib/supabase.js';
 import { partiesAgeingQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatDate } from '../../lib/format.js';
 import { AFTER, invalidate } from '../../lib/cache.js';
-import Overlay from '../../components/Overlay.jsx';
+import { Link } from 'react-router-dom';
+import UserFilter from '../../components/UserFilter.jsx';
+import { useMe, matchesUser } from '../../lib/useMe.js';
+import { FollowupButtons } from '../../components/FollowupActions.jsx';
 
 /**
  * Claims, follow-ups and promises.
@@ -241,14 +244,18 @@ const METHODS = ['call', 'visit', 'whatsapp', 'email'];
 export function FollowupsScreen() {
   const qc = useQueryClient();
   const { data: parties } = useQuery(partiesAgeingQuery());
+  const { userId } = useMe();
+  const [who, setWho] = useState('');
+
   const { data: rows, isLoading } = useQuery({
     queryKey: ['followups'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('followups')
-        .select('*, parties(display_name, current_outstanding)')
+        .select('*, parties(display_name, current_outstanding, phone, contact_person, responsible_person), app_users(full_name)')
         .order('contact_date', { ascending: false })
-        .limit(300);
+        .order('created_at', { ascending: false })
+        .limit(400);
       if (error) throw error;
       return data ?? [];
     },
@@ -267,188 +274,127 @@ export function FollowupsScreen() {
     },
   });
 
-  /*
-   * Closing asks why, and will not proceed without an answer.
-   *
-   * The database enforces this with a CHECK — closing a follow-up is how
-   * somebody says the matter is dealt with, and without a reason the register
-   * fills with closed rows nobody can learn from, so the next person rings the
-   * party blind. This dialog is the form side of the same rule: without it the
-   * button simply fails against the constraint, which is a worse experience
-   * than being asked.
-   */
-  const [closing, setClosing] = useState(null);
+  const today = new Date().toISOString().slice(0, 10);
 
-  const close = useMutation({
-    mutationFn: async ({ id, reason }) => {
-      const { error } = await supabase
-        .from('followups')
-        .update({ closed: true, close_reason: reason })
-        .eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      invalidate(qc, AFTER.followup);
-      setClosing(null);
-    },
+  /*
+   * One live thread per party is now guaranteed by the database, so Missed
+   * and Planned each list a party once. The person filter applies to the one
+   * who logged the entry — "my follow-ups" — and, for open threads, also to
+   * the party's owner, so a newly assigned party shows up for its new owner
+   * before they have logged anything on it.
+   */
+  const mine = (f) =>
+    matchesUser(who, f.by_user, userId) ||
+    (!f.closed && who && who !== 'none' && matchesUser(who, f.parties?.responsible_person, userId));
+
+  const open = (rows ?? []).filter((f) => !f.closed && mine(f));
+  const missed = open.filter((f) => f.next_followup_date && f.next_followup_date < today);
+  const planned = open.filter((f) => f.next_followup_date && f.next_followup_date >= today);
+  const undated = open.filter((f) => !f.next_followup_date);
+  const activity = (rows ?? []).filter((f) => mine(f)).slice(0, 80);
+
+  const refresh = () => invalidate(qc, AFTER.followup);
+  const partyFor = (f) => ({
+    party_id: f.party_id,
+    display_name: f.parties?.display_name,
+    phone: f.parties?.phone,
+    contact_person: f.parties?.contact_person,
+    current_outstanding: f.parties?.current_outstanding,
   });
 
-  const today = new Date().toISOString().slice(0, 10);
-  const missed = (rows ?? []).filter((f) => !f.closed && f.next_followup_date && f.next_followup_date < today);
-  const planned = (rows ?? []).filter((f) => !f.closed && f.next_followup_date && f.next_followup_date >= today);
-  const activity = (rows ?? []).filter((f) => f.closed || !f.next_followup_date).slice(0, 40);
+  const line = (f) =>
+    [
+      f.method === 'remark' ? 'remark' : f.method,
+      f.outcome,
+      f.app_users?.full_name ? `by ${f.app_users.full_name}` : null,
+    ].filter(Boolean).join(' · ');
 
   return (
     <Screen
       loading={isLoading}
-      intro={<>Missed first, then what is planned, then what the team has been doing.</>}
+      intro={<>Missed first, then what is planned, then everything the team has done — with who did it and why anything was closed.</>}
       form={
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!form.party_id) return;
-            log.mutate({
-              party_id: form.party_id,
-              method: form.method,
-              outcome: form.outcome || null,
-              next_followup_date: form.next_followup_date || null,
-            });
-          }}
-        >
-          <PartyPicker parties={parties} value={form.party_id} onChange={(v) => setForm({ ...form, party_id: v })} />
-          <Field label="Method">
-            <select value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })} className={INPUT}>
-              {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </Field>
-          <Field label="Outcome">
-            <input value={form.outcome} onChange={(e) => setForm({ ...form, outcome: e.target.value })} placeholder="Promised Friday" className={`${INPUT} w-[200px]`} />
-          </Field>
-          <Field label="Next follow-up">
-            <input type="date" value={form.next_followup_date} onChange={(e) => setForm({ ...form, next_followup_date: e.target.value })} className={INPUT} />
-          </Field>
-          <button type="submit" className="btn btn-primary" disabled={!form.party_id || log.isPending}>Log follow-up</button>
-        </form>
+        <div className="flex flex-wrap items-end gap-3">
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!form.party_id) return;
+              log.mutate({
+                party_id: form.party_id,
+                method: form.method,
+                outcome: form.outcome || null,
+                next_followup_date: form.next_followup_date || null,
+              });
+            }}
+          >
+            <PartyPicker parties={parties} value={form.party_id} onChange={(v) => setForm({ ...form, party_id: v })} />
+            <Field label="Method">
+              <select value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })} className={INPUT}>
+                {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </Field>
+            <Field label="What they said">
+              <input value={form.outcome} onChange={(e) => setForm({ ...form, outcome: e.target.value })} placeholder="Promised Friday" className={`${INPUT} w-[200px]`} />
+            </Field>
+            <Field label="Next follow-up">
+              <input type="date" value={form.next_followup_date} onChange={(e) => setForm({ ...form, next_followup_date: e.target.value })} className={INPUT} />
+            </Field>
+            <button type="submit" className="btn btn-primary" disabled={!form.party_id || log.isPending}>Log follow-up</button>
+          </form>
+          <UserFilter value={who} onChange={setWho} label="Show" className="ml-auto" />
+        </div>
       }
     >
       <Group title="Missed" count={missed.length} tone="alert">
         {missed.length === 0 ? <Empty>Nothing committed has been missed.</Empty> : missed.map((f) => (
-          <Row key={f.id} name={f.parties?.display_name ?? '—'} amount={formatInr(f.parties?.current_outstanding)}
-            meta={`was due ${formatDate(f.next_followup_date)} · ${f.method}${f.outcome ? ` · ${f.outcome}` : ''}`}
-            action={
-              <span className="flex items-center gap-[6px]">
-                <ContactActions party={partyOf(parties, f.party_id)} compact />
-                <button type="button" className="btn btn-secondary px-[10px] py-[3px] text-[11.5px]" onClick={() => setClosing(f)}>Close</button>
-              </span>
-            } />
+          <Row key={f.id} name={<PartyLink f={f} />} amount={formatInr(f.parties?.current_outstanding)}
+            meta={`was due ${formatDate(f.next_followup_date)} · ${line(f)}`}
+            action={<FollowupButtons party={partyFor(f)} thread={f} onDone={refresh} compact />} />
         ))}
       </Group>
 
       <Group title="Planned" count={planned.length}>
         {planned.length === 0 ? <Empty>Nothing scheduled.</Empty> : planned.map((f) => (
-          <Row key={f.id} name={f.parties?.display_name ?? '—'} amount={formatInr(f.parties?.current_outstanding)}
-            meta={`due ${formatDate(f.next_followup_date)} · ${f.method}${f.outcome ? ` · ${f.outcome}` : ''}`}
-            action={
-              <span className="flex items-center gap-[6px]">
-                <ContactActions party={partyOf(parties, f.party_id)} compact />
-                <button type="button" className="btn btn-secondary px-[10px] py-[3px] text-[11.5px]" onClick={() => setClosing(f)}>Close</button>
-              </span>
-            } />
+          <Row key={f.id} name={<PartyLink f={f} />} amount={formatInr(f.parties?.current_outstanding)}
+            meta={`due ${formatDate(f.next_followup_date)} · ${line(f)}`}
+            action={<FollowupButtons party={partyFor(f)} thread={f} onDone={refresh} compact />} />
         ))}
       </Group>
 
-      <Group title="Team activity" count={activity.length}>
-        {activity.length === 0 ? <Empty>No contact logged yet.</Empty> : activity.map((f) => (
-          <Row key={f.id} name={f.parties?.display_name ?? '—'} amount={formatInr(f.parties?.current_outstanding)}
-            meta={`${formatDate(f.contact_date)} · ${f.method}${f.outcome ? ` · ${f.outcome}` : ''}${f.close_reason ? ` · closed: ${f.close_reason}` : ''}`} />
-        ))}
-      </Group>
-
-      {closing ? (
-        <CloseFollowupDialog
-          followup={closing}
-          busy={close.isPending}
-          error={close.error?.message}
-          onCancel={() => setClosing(null)}
-          onConfirm={(reason) => close.mutate({ id: closing.id, reason })}
-        />
+      {undated.length > 0 ? (
+        <Group title="Open, no date set" count={undated.length}>
+          {undated.map((f) => (
+            <Row key={f.id} name={<PartyLink f={f} />} amount={formatInr(f.parties?.current_outstanding)}
+              meta={`${formatDate(f.contact_date)} · ${line(f)}`}
+              action={<FollowupButtons party={partyFor(f)} thread={f} onDone={refresh} compact />} />
+          ))}
+        </Group>
       ) : null}
+
+      <Group title="Activity log" count={activity.length}>
+        {activity.length === 0 ? <Empty>No contact logged yet.</Empty> : activity.map((f) => {
+          const superseded = /^Superseded by/.test(f.close_reason ?? '');
+          return (
+            <Row key={f.id} name={<PartyLink f={f} />} amount={formatInr(f.parties?.current_outstanding)}
+              meta={
+                `${formatDate(f.contact_date)} · ${line(f)}` +
+                (f.closed && !superseded ? ` · closed: ${f.close_reason}` : '') +
+                (superseded ? ' · continued by a later entry' : '') +
+                (!f.closed && f.next_followup_date ? ` · next ${formatDate(f.next_followup_date)}` : '')
+              } />
+          );
+        })}
+      </Group>
     </Screen>
   );
 }
 
-/*
- * The presets are the six things that actually end a follow-up on this desk.
- * They exist so the reason gets typed at all: faced with an empty box between
- * themselves and the next call, people write "done", which is no reason. Any
- * of them can be edited before saving, and the box stays free text.
- */
-const CLOSE_REASONS = [
-  'Paid in full',
-  'Part payment received',
-  'Promise taken — logged separately',
-  'Party disputes the bill',
-  'Could not reach — number wrong',
-  'Handed to legal',
-];
-
-function CloseFollowupDialog({ followup, onConfirm, onCancel, busy, error }) {
-  const [reason, setReason] = useState('');
-  const trimmed = reason.trim();
-
+function PartyLink({ f }) {
   return (
-    <Overlay onClose={onCancel} label="Close follow-up">
-      <div className="overlay-center">
-        <div className="panel w-[460px] max-w-[94vw] p-[18px]">
-          <h2 className="text-[14.5px] font-semibold tracking-[-0.01em]">Why is this being closed?</h2>
-          <p className="mt-1 text-[12px] text-mute text-pretty">
-            {followup.parties?.display_name ?? 'This party'} — whoever picks this party up next will
-            read what you write here before they ring.
-          </p>
-
-          <div className="mt-3 flex flex-wrap gap-[6px]">
-            {CLOSE_REASONS.map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setReason(r)}
-                className={[
-                  'rounded-[2px] border px-[9px] py-[4px] text-[11.5px] transition-colors',
-                  reason === r
-                    ? 'border-teal bg-teal font-medium text-onaccent'
-                    : 'border-hair bg-surface text-body hover:border-teal',
-                ].join(' ')}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={3}
-            placeholder="Or write what happened…"
-            className="mt-3 w-full rounded-[2px] border border-hair bg-surface px-[10px] py-[7px] text-[12.5px]"
-          />
-
-          {error ? <p className="mt-2 text-[11.5px] text-age-4">{error}</p> : null}
-
-          <div className="mt-3 flex items-center justify-end gap-2">
-            <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={!trimmed || busy}
-              onClick={() => onConfirm(trimmed)}
-            >
-              {busy ? 'Closing…' : 'Close follow-up'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Overlay>
+    <Link to={`/parties/${f.party_id}`} className="text-ink no-underline hover:underline">
+      {f.parties?.display_name ?? '—'}
+    </Link>
   );
 }
 

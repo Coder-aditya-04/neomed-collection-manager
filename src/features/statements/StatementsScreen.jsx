@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
 import { latestSnapshotQuery, partiesAgeingQuery } from '../../lib/queries.js';
+import { patchParties } from '../../lib/cache.js';
 import { formatInr, formatCount, formatDate } from '../../lib/format.js';
 import { buildStatementText, statementWhatsAppLink, planBatch } from './statement.js';
 import StatementDocument from './StatementDocument.jsx';
@@ -25,9 +26,48 @@ export default function StatementsScreen() {
 
   const [query, setQuery] = useState('');
   const [minAmount, setMinAmount] = useState(10000);
+  const [mode, setMode] = useState('');          // '' | whatsapp | physical | do_not_send
+  const [period, setPeriod] = useState('latest'); // 'latest' | 'YYYY-MM'
   const [selected, setSelected] = useState(() => new Set());
   const [preview, setPreview] = useState(null);
   const [sentIds, setSentIds] = useState(() => new Set());
+
+  /*
+   * "As on" — the latest import, or the end of a past month.
+   *
+   * A party asking in October for September's statement wants the position
+   * as it stood on 30 September. The book is only known on the days it was
+   * exported, so the statement is drawn from the last import on or before the
+   * month's end and says which date that was. No interpolation: if nothing
+   * was imported in that month, it says so rather than inventing a balance.
+   */
+  const { data: snapshots } = useQuery({
+    queryKey: ['snapshots-all'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('snapshots').select('id, report_date, file_name').order('report_date', { ascending: false }).limit(200);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const months = useMemo(() => {
+    const out = [];
+    const d = new Date();
+    d.setDate(1);
+    for (let i = 1; i <= 8; i += 1) {
+      d.setMonth(d.getMonth() - 1);
+      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    return out;
+  }, []);
+
+  const asOfSnapshot = useMemo(() => {
+    if (period === 'latest') return snapshot ?? null;
+    const [y, m] = period.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).toISOString().slice(0, 10);
+    const firstDay = `${period}-01`;
+    return (snapshots ?? []).find((s) => s.report_date <= lastDay && s.report_date >= firstDay) ?? null;
+  }, [period, snapshot, snapshots]);
 
   const candidates = useMemo(() => {
     if (!parties) return [];
@@ -35,8 +75,20 @@ export default function StatementsScreen() {
     return parties
       .filter((p) => Number(p.current_outstanding) >= minAmount)
       .filter((p) => (q ? p.display_name.toUpperCase().includes(q) : true))
+      .filter((p) => (mode ? (p.statement_mode ?? 'whatsapp') === mode : true))
       .sort((a, b) => Number(b.current_outstanding) - Number(a.current_outstanding));
-  }, [parties, query, minAmount]);
+  }, [parties, query, minAmount, mode]);
+
+  const counts = useMemo(() => {
+    const c = { whatsapp: 0, physical: 0, do_not_send: 0 };
+    for (const p of parties ?? []) if (Number(p.current_outstanding) >= minAmount) c[p.statement_mode ?? 'whatsapp'] += 1;
+    return c;
+  }, [parties, minAmount]);
+
+  async function setStatementMode(party, value) {
+    const { error } = await supabase.from('parties').update({ statement_mode: value }).eq('id', party.party_id);
+    if (!error) patchParties(queryClient, [party.party_id], { statement_mode: value });
+  }
 
   const chosen = candidates.filter((p) => selected.has(p.party_id));
   const plan = useMemo(() => planBatch(chosen), [chosen]);
@@ -49,10 +101,24 @@ export default function StatementsScreen() {
       <section className="panel panel-lift mb-3 px-4 py-3">
         <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Send statements on WhatsApp</h2>
         <p className="mt-1 max-w-[100ch] text-[12px] text-mute text-pretty">
-          Pick the parties, check the message, and send. Every figure comes from the{' '}
-          {formatDate(snapshot?.report_date)} snapshot, so a statement can never disagree with the
-          book. WhatsApp opens with the message written; you press send.
+          Pick the parties, check the message, and send. Every figure comes from an import, so a
+          statement can never disagree with the book. WhatsApp opens with the message written; you
+          press send. Parties marked <strong>physical</strong> need a printed copy; parties marked{' '}
+          <strong>do not send</strong> get nothing, on any channel.
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-hair pt-3 text-[12px]">
+          <span className="kicker">Balance as on</span>
+          <select value={period} onChange={(e) => setPeriod(e.target.value)}
+                  className="rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-[12px]">
+            <option value="latest">Latest import · {formatDate(snapshot?.report_date)}</option>
+            {months.map((m) => <option key={m} value={m}>End of {monthLabel(m)}</option>)}
+          </select>
+          {period !== 'latest' ? (
+            asOfSnapshot
+              ? <span className="text-mute">using the {formatDate(asOfSnapshot.report_date)} import — the last one in that month</span>
+              : <span className="text-age-3">nothing was imported in {monthLabel(period)}, so there is no position to print for it</span>
+          ) : null}
+        </div>
       </section>
 
       <div className="mb-3 flex flex-wrap items-end gap-3">
@@ -72,8 +138,16 @@ export default function StatementsScreen() {
             className="tnum w-[110px] rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-right text-[12px]"
           />
         </label>
+        <span className="flex gap-[5px]">
+          {[['', 'All'], ['whatsapp', `WhatsApp · ${counts.whatsapp}`], ['physical', `Physical · ${counts.physical}`], ['do_not_send', `Do not send · ${counts.do_not_send}`]].map(([v, l]) => (
+            <button key={v} type="button" onClick={() => setMode(v)}
+                    className={`rounded-[2px] border px-[9px] py-[4px] text-[11.5px] ${mode === v ? 'border-teal bg-teal font-semibold text-onaccent' : 'border-hair bg-surface text-body hover:border-teal'}`}>
+              {l}
+            </button>
+          ))}
+        </span>
         <button type="button" className="btn btn-secondary"
-                onClick={() => setSelected(new Set(candidates.slice(0, 50).map((p) => p.party_id)))}>
+                onClick={() => setSelected(new Set(candidates.filter((p) => (p.statement_mode ?? 'whatsapp') !== 'do_not_send').slice(0, 50).map((p) => p.party_id)))}>
           Select top 50
         </button>
         <button type="button" className="btn btn-secondary" onClick={() => setSelected(new Set())}>
@@ -113,6 +187,7 @@ export default function StatementsScreen() {
               <Th align="right" width="110px">Outstanding</Th>
               <Th align="right" width="70px">Bills</Th>
               <Th width="120px">Mobile</Th>
+              <Th width="170px">Delivery</Th>
               <Th width="210px">Statement</Th>
             </tr>
           </thead>
@@ -138,9 +213,20 @@ export default function StatementsScreen() {
                   {p.phone || <span className="text-faint">not set</span>}
                 </td>
                 <td className="px-[10px] py-[6px]">
+                  <select value={p.statement_mode ?? 'whatsapp'} onChange={(e) => setStatementMode(p, e.target.value)}
+                          className={`rounded-[2px] border px-[6px] py-[2px] text-[11px] ${
+                            (p.statement_mode ?? 'whatsapp') === 'physical' ? 'border-[#C9A93E] bg-[#C9A93E]/10 text-[#7A6410]'
+                            : p.statement_mode === 'do_not_send' ? 'border-age-4/50 bg-age-4/10 text-age-4'
+                            : 'border-hair bg-surface'}`}>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="physical">Physical — compulsory</option>
+                    <option value="do_not_send">Do not send</option>
+                  </select>
+                </td>
+                <td className="px-[10px] py-[6px]">
                   <StatementActions
                     party={p}
-                    snapshot={snapshot}
+                    snapshot={asOfSnapshot}
                     sent={sentIds.has(p.party_id)}
                     onPreview={setPreview}
                     onSent={() => {
@@ -208,16 +294,24 @@ function StatementActions({ party, snapshot, sent, onPreview, onSent }) {
     });
   }
 
+  const m = party.statement_mode ?? 'whatsapp';
+  if (m === 'do_not_send') {
+    return <span className="text-[11px] text-age-4">Do not send — by instruction</span>;
+  }
   return (
     <span className="flex items-center gap-[5px]">
-      <button type="button" onClick={show} disabled={busy}
+      <button type="button" onClick={show} disabled={busy || !snapshot}
               className="rounded-[2px] border border-hair bg-surface px-[8px] py-[2px] text-[11px] hover:bg-surface-3">
-        Statement
+        {m === 'physical' ? 'Statement · print' : 'Statement'}
       </button>
-      <button type="button" onClick={open} disabled={busy || !party.phone}
-              className="rounded-[2px] border border-[#25D366] bg-[#25D366]/10 px-[8px] py-[2px] text-[11px] text-[#0B7A3E] disabled:opacity-40">
-        {busy ? '…' : 'Send'}
-      </button>
+      {m === 'physical' ? (
+        <span className="text-[10.5px] text-[#7A6410]">paper compulsory</span>
+      ) : (
+        <button type="button" onClick={open} disabled={busy || !party.phone || !snapshot}
+                className="rounded-[2px] border border-[#25D366] bg-[#25D366]/10 px-[8px] py-[2px] text-[11px] text-[#0B7A3E] disabled:opacity-40">
+          {busy ? '…' : 'Send'}
+        </button>
+      )}
       {sent ? <span className="text-[11px] text-teal-deep">sent</span> : null}
     </span>
   );
@@ -416,4 +510,10 @@ function Msg({ children }) {
       <div className="panel p-[14px] text-[12.5px] text-mute">{children}</div>
     </div>
   );
+}
+
+function monthLabel(ym) {
+  const [y, m] = String(ym).split('-').map(Number);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return `${months[m - 1]} ${y}`;
 }

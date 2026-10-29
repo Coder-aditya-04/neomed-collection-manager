@@ -1,14 +1,17 @@
 import { useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { partiesAgeingQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatAge, formatPct } from '../../lib/format.js';
 import AgeingStrip, { bucketsOf, TermBadge } from '../../components/AgeingStrip.jsx';
 import { Stars } from '../../components/StarRating.jsx';
-import PartyDrawer from './PartyDrawer.jsx';
+import UserFilter from '../../components/UserFilter.jsx';
+import { useMe, matchesUser } from '../../lib/useMe.js';
+import { NewParties, Duplicates } from './Housekeeping.jsx';
 
 /** Matches the component sheet in the prototype. */
-const ROW_HEIGHT = 27;
+const ROW_HEIGHT = 34;
 
 /*
  * The tiny-balance filters are here because the desk asked for them by name:
@@ -51,7 +54,10 @@ export default function PartiesScreen() {
   const [filter, setFilter] = useState('all');
   const [sortCol, setSortCol] = useState('current_outstanding');
   const [sortDir, setSortDir] = useState('desc');
-  const [selected, setSelected] = useState(null);
+  const [who, setWho] = useState('');
+  const [panel, setPanel] = useState(null); // 'new' | 'dupes'
+  const navigate = useNavigate();
+  const { userId } = useMe();
   const scrollRef = useRef(null);
 
   const rows = useMemo(() => {
@@ -59,7 +65,8 @@ export default function PartiesScreen() {
     const q = normalise(query);
     let out = parties;
 
-    if (q) out = out.filter((p) => normalise(p.display_name).includes(q));
+    if (q) out = out.filter((p) => normalise(p.display_name).includes(q) || (p.aliases ?? []).some((a) => normalise(a).includes(q)));
+    if (who) out = out.filter((p) => matchesUser(who, p.responsible_person, userId));
 
     const predicate = {
       critical: (p) => Number(p.over_60 ?? 0) > 0 && Number(p.current_outstanding) > 100000,
@@ -93,7 +100,7 @@ export default function PartiesScreen() {
       if (typeof x === 'string') return x.localeCompare(y) * dir;
       return (Number(x) - Number(y)) * dir;
     });
-  }, [parties, query, filter, sortCol, sortDir]);
+  }, [parties, query, filter, sortCol, sortDir, who, userId]);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -103,9 +110,6 @@ export default function PartiesScreen() {
   });
 
   const shownTotal = rows.reduce((a, p) => a + Number(p.current_outstanding), 0);
-  const selectedRow = selected
-    ? (parties ?? []).find((p) => p.party_id === selected.party_id) ?? selected
-    : null;
 
   function sortBy(id) {
     if (id === sortCol) setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
@@ -150,10 +154,22 @@ export default function PartiesScreen() {
             {label}
           </button>
         ))}
+        <UserFilter value={who} onChange={setWho} label={null} />
+        <button type="button" onClick={() => setPanel(panel === 'dupes' ? null : 'dupes')}
+                className={`rounded-[2px] border px-[10px] py-[4px] text-[11.5px] ${panel === 'dupes' ? 'border-teal bg-teal font-semibold text-onaccent' : 'border-hair bg-surface text-body hover:border-teal'}`}>
+          Merge duplicates
+        </button>
+        <button type="button" onClick={() => setPanel(panel === 'new' ? null : 'new')}
+                className={`rounded-[2px] border px-[10px] py-[4px] text-[11.5px] ${panel === 'new' ? 'border-teal bg-teal font-semibold text-onaccent' : 'border-hair bg-surface text-body hover:border-teal'}`}>
+          New parties
+        </button>
         <span className="tnum ml-auto text-[11.5px] text-mute">
           {formatCount(rows.length)} parties · {formatInr(shownTotal)}
         </span>
       </div>
+
+      {panel === 'dupes' ? <div className="mb-3"><Duplicates /></div> : null}
+      {panel === 'new' ? <div className="mb-3"><NewParties /></div> : null}
 
       <div className="panel flex min-h-0 flex-1 flex-col">
         <div
@@ -204,8 +220,8 @@ export default function PartiesScreen() {
                     key={p.party_id}
                     party={p}
                     top={item.start}
-                    onOpen={() => setSelected(p)}
-                    selected={selected?.party_id === p.party_id}
+                    onOpen={() => navigate(`/parties/${p.party_id}`)}
+                    selected={false}
                   />
                 );
               })}
@@ -219,15 +235,6 @@ export default function PartiesScreen() {
         </div>
       </div>
 
-      {/*
-        * The drawer is handed the CURRENT row, not the one that was clicked.
-        *
-        * `selected` is a snapshot taken at click time. Saving a credit term or
-        * a status refetches the list, but that snapshot never changed, so the
-        * drawer went on showing the old value and the save looked as though it
-        * had silently failed.
-        */}
-      {selectedRow ? <PartyDrawer party={selectedRow} onClose={() => setSelected(null)} /> : null}
     </div>
   );
 }
@@ -258,8 +265,9 @@ function Row({ party, top, onOpen, selected }) {
         <span className="truncate font-medium">{party.display_name}</span>
         <Stars value={party.star_rating} size={10} />
       </span>
-      <span className="truncate">
+      <span className="flex min-w-0 flex-col gap-[1px]">
         <TermBadge row={party} />
+        {party.responsible_name ? <span className="truncate text-[10px] text-faint">{party.responsible_name}</span> : null}
       </span>
       <span className="pr-2">
         <AgeingStrip buckets={buckets} height={8} />

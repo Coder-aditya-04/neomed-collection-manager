@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase.js';
 import { partiesAgeingQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatAge, formatPct } from '../../lib/format.js';
 import { TermBadge } from '../../components/AgeingStrip.jsx';
+import { TermEditor, draftFromParty, termFromDraft, CLEARED_TERM } from '../../components/TermEditor.jsx';
+import { Link } from 'react-router-dom';
 import { AFTER, PARTY_DERIVED, invalidate, patchParties } from '../../lib/cache.js';
 
 /**
@@ -85,23 +87,13 @@ export default function CreditMasterScreen() {
     mutationFn: async (ids) => {
       const { error } = await supabase
         .from('parties')
-        .update({
-          credit_type: 'none',
-          credit_days: null,
-          cycle_submit_day: null,
-          cycle_pay_day: null,
-          cycle_lag_months: 0,
-          credit_source: 'not_set',
-        })
+        .update(CLEARED_TERM)
         .in('id', ids);
       if (error) throw error;
       return ids.length;
     },
     onSuccess: (n, ids) => {
-      patchParties(queryClient, ids, {
-        credit_type: 'none', credit_days: null, cycle_submit_day: null,
-        cycle_pay_day: null, cycle_lag_months: 0, credit_source: 'not_set',
-      });
+      patchParties(queryClient, ids, CLEARED_TERM);
       invalidate(queryClient, PARTY_DERIVED);
       flash(`Term cleared on ${n} ${n === 1 ? 'party' : 'parties'}`);
     },
@@ -276,7 +268,7 @@ function PartyRow({ party, index, checked, onCheck, onSave, onClear }) {
       </td>
       <td className="tnum px-[6px] py-[5px] text-right text-faint">{index + 1}</td>
       <td className="px-[10px] py-[5px]">
-        <span className="font-medium">{party.display_name}</span>
+        <Link to={`/parties/${party.party_id}`} className="font-medium text-ink no-underline hover:underline">{party.display_name}</Link>
       </td>
       <td className="tnum px-[10px] py-[5px] text-right font-medium">{formatInr(party.current_outstanding)}</td>
       <td className="tnum px-[10px] py-[5px] text-right text-mute">{formatAge(party.oldest_bill_age_days)}</td>
@@ -310,126 +302,6 @@ function PartyRow({ party, index, checked, onCheck, onSave, onClear }) {
       </td>
     </tr>
   );
-}
-
-/**
- * Tab moves across the fields and Enter saves, so a column can be filled
- * without reaching for the mouse.
- */
-function TermEditor({ draft, onChange, compact }) {
-  const input = `rounded-[2px] border border-hair bg-surface px-[6px] py-[3px] text-[11.5px] tnum ${compact ? '' : 'mt-1'}`;
-
-  return (
-    <div className="flex items-center gap-[6px]">
-      <select
-        value={draft.credit_type}
-        onChange={(e) => onChange({ ...draft, credit_type: e.target.value })}
-        className="rounded-[2px] border border-hair bg-surface px-[6px] py-[3px] text-[11.5px]"
-        aria-label="Credit model"
-      >
-        <option value="days">Days</option>
-        <option value="cycle">Monthly cycle</option>
-        <option value="none">Not set</option>
-      </select>
-
-      {draft.credit_type === 'days' ? (
-        <>
-          <input
-            type="number"
-            min="0"
-            max="365"
-            value={draft.credit_days ?? ''}
-            onChange={(e) => onChange({ ...draft, credit_days: e.target.value })}
-            className={`${input} w-[64px] text-right`}
-            aria-label="Days from bill date"
-            placeholder="30"
-          />
-          <span className="text-[11px] text-faint">days</span>
-        </>
-      ) : null}
-
-      {draft.credit_type === 'cycle' ? (
-        <>
-          <span className="text-[11px] text-faint">by</span>
-          <input
-            type="number"
-            min="1"
-            max="31"
-            value={draft.cycle_submit_day ?? ''}
-            onChange={(e) => onChange({ ...draft, cycle_submit_day: e.target.value })}
-            className={`${input} w-[46px] text-right`}
-            aria-label="Submit by day of month"
-          />
-          <span className="text-[11px] text-faint">pay</span>
-          <input
-            type="number"
-            min="1"
-            max="31"
-            value={draft.cycle_pay_day ?? ''}
-            onChange={(e) => onChange({ ...draft, cycle_pay_day: e.target.value })}
-            className={`${input} w-[46px] text-right`}
-            aria-label="Paid on day of month"
-          />
-          <select
-            value={draft.cycle_lag_months ?? 0}
-            onChange={(e) => onChange({ ...draft, cycle_lag_months: Number(e.target.value) })}
-            className="rounded-[2px] border border-hair bg-surface px-[5px] py-[3px] text-[11.5px]"
-            aria-label="Which month payment lands"
-          >
-            <option value={0}>same month</option>
-            <option value={1}>next month</option>
-            <option value={2}>+2 months</option>
-          </select>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function draftFromParty(p) {
-  return {
-    credit_type: p.credit_type ?? 'none',
-    credit_days: p.credit_days ?? '',
-    cycle_submit_day: p.cycle_submit_day ?? '',
-    cycle_pay_day: p.cycle_pay_day ?? '',
-    cycle_lag_months: p.cycle_lag_months ?? 0,
-  };
-}
-
-/**
- * Builds the column set for the chosen model, and returns null when the draft
- * is incomplete — the schema rejects a half-filled term, so the Save button
- * stays disabled rather than producing a constraint error.
- */
-function termFromDraft(d) {
-  if (d.credit_type === 'days') {
-    const days = Number(d.credit_days);
-    if (!Number.isFinite(days) || d.credit_days === '' || days < 0 || days > 365) return null;
-    return {
-      credit_type: 'days',
-      credit_days: days,
-      cycle_submit_day: null,
-      cycle_pay_day: null,
-      cycle_lag_months: 0,
-    };
-  }
-  if (d.credit_type === 'cycle') {
-    const submit = Number(d.cycle_submit_day);
-    const pay = Number(d.cycle_pay_day);
-    if (!inRange(submit) || !inRange(pay)) return null;
-    return {
-      credit_type: 'cycle',
-      credit_days: null,
-      cycle_submit_day: submit,
-      cycle_pay_day: pay,
-      cycle_lag_months: Number(d.cycle_lag_months) || 0,
-    };
-  }
-  return null;
-}
-
-function inRange(n) {
-  return Number.isFinite(n) && n >= 1 && n <= 31;
 }
 
 function Th({ children, align = 'left', width }) {

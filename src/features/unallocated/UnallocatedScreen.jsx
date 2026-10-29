@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { teamQuery } from '../../lib/useMe.js';
+import { FollowupButtons, fetchThreads } from '../../components/FollowupActions.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { latestSnapshotQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatAge, formatDate } from '../../lib/format.js';
@@ -35,15 +38,60 @@ export default function UnallocatedScreen() {
 
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(null);
+  const [hideDone, setHideDone] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const qc = useQueryClient();
+  const { data: snapshot } = useQuery(latestSnapshotQuery());
+  const { data: team } = useQuery(teamQuery());
+
+  /*
+   * Who has already worked which party, on THIS import. The list only shrinks
+   * when the next file arrives, so between imports the desk marks what is
+   * dealt with — and the marks belong to the import, not to the party.
+   */
+  const workQ = useQuery({
+    queryKey: ['allocation-work', snapshot?.id],
+    enabled: Boolean(snapshot?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase.from('allocation_work').select('*').eq('snapshot_id', snapshot.id);
+      if (error) { if (/allocation_work/.test(error.message)) return []; throw error; }
+      return data ?? [];
+    },
+  });
+  const worked = new Map((workQ.data ?? []).map((w) => [w.party_id, w]));
+  const names = new Map((team ?? []).map((u) => [u.id, u.full_name]));
+
+  const mark = useMutation({
+    mutationFn: async ({ party_id, note, undo }) => {
+      if (undo) {
+        const { error } = await supabase.from('allocation_work').delete().eq('party_id', party_id).eq('snapshot_id', snapshot.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('allocation_work').insert({ party_id, snapshot_id: snapshot.id, note: note || null });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['allocation-work'] }),
+  });
 
   const rows = useMemo(() => {
     const q = query.toUpperCase().trim();
     let out = data ?? [];
     if (q) out = out.filter((r) => r.display_name.toUpperCase().includes(q));
+    if (hideDone) out = out.filter((r) => !worked.has(r.party_id));
     return out;
-  }, [data, query]);
+  }, [data, query, hideDone, workQ.data]);
 
   const total = rows.reduce((a, r) => a + Number(r.unallocated), 0);
+  const doneCount = (data ?? []).filter((r) => worked.has(r.party_id)).length;
+
+  async function exportList() {
+    setExporting(true);
+    try {
+      const { exportUnallocated } = await import('../../lib/exportExcel.js');
+      await exportUnallocated((data ?? []).map((r) => ({ ...r, worked_by: names.get(worked.get(r.party_id)?.by_user) ?? '', worked_note: worked.get(r.party_id)?.note ?? '' })), snapshot?.report_date);
+    } finally { setExporting(false); }
+  }
 
   if (error) return <Msg tone="error">{error.message}</Msg>;
   if (isLoading) return <Msg>Loading…</Msg>;
@@ -78,6 +126,13 @@ export default function UnallocatedScreen() {
           placeholder="Search parties…"
           className="w-[240px] rounded-[2px] border border-hair bg-surface px-[10px] py-[5px] text-[12.5px]"
         />
+        <label className="flex items-center gap-[6px] text-[12px]">
+          <input type="checkbox" checked={hideDone} onChange={(e) => setHideDone(e.target.checked)} />
+          Hide worked ({formatCount(doneCount)})
+        </label>
+        <button type="button" className="btn btn-secondary px-[10px] py-[4px] text-[11.5px]" onClick={exportList} disabled={exporting || !data?.length}>
+          {exporting ? 'Building…' : 'Export to Excel'}
+        </button>
         <span className="tnum ml-auto text-[11.5px] text-mute">
           {formatCount(rows.length)} shown
         </span>
@@ -94,15 +149,18 @@ export default function UnallocatedScreen() {
               <Th align="right" width="80px">Bills</Th>
               <Th align="right" width="80px">Oldest</Th>
               <Th width="170px">Contact</Th>
+              <Th width="190px">Worked</Th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {rows.map((r) => {
+              const w = worked.get(r.party_id);
+              return (
               <tr key={r.party_id}
                   onClick={() => setOpen(r)}
-                  className="cursor-pointer border-b border-rule last:border-b-0 hover:bg-surface-2">
+                  className={`cursor-pointer border-b border-rule last:border-b-0 hover:bg-surface-2 ${w ? 'opacity-60' : ''}`}>
                 <td className="px-[10px] py-[6px]">
-                  <span className="font-medium">{r.display_name}</span>
+                  <Link to={`/parties/${r.party_id}`} onClick={(e) => e.stopPropagation()} className="font-medium text-ink no-underline hover:underline">{r.display_name}</Link>
                   {r.contact_person ? (
                     <span className="ml-2 text-[11px] text-faint">{r.contact_person}</span>
                   ) : null}
@@ -117,10 +175,24 @@ export default function UnallocatedScreen() {
                 <td className="px-[10px] py-[6px]" onClick={(e) => e.stopPropagation()}>
                   <Contact row={r} />
                 </td>
+                <td className="px-[10px] py-[6px]" onClick={(e) => e.stopPropagation()}>
+                  {w ? (
+                    <span className="text-[11px] text-teal-deep">
+                      ✓ {names.get(w.by_user) ?? 'done'} · {formatDate(w.done_at)}{w.note ? ` · ${w.note}` : ''}{' '}
+                      <button type="button" className="text-faint underline" onClick={() => mark.mutate({ party_id: r.party_id, undo: true })}>undo</button>
+                    </span>
+                  ) : (
+                    <button type="button" className="btn btn-secondary px-[8px] py-[2px] text-[10.5px]"
+                            disabled={!snapshot || mark.isPending}
+                            onClick={() => { const note = window.prompt('What was agreed? (optional)') ?? null; if (note !== null) mark.mutate({ party_id: r.party_id, note }); }}>
+                      Mark worked
+                    </button>
+                  )}
+                </td>
               </tr>
-            ))}
+            ); })}
             {rows.length === 0 ? (
-              <tr><td colSpan={7} className="px-[10px] py-4 text-center text-[12px] text-faint">
+              <tr><td colSpan={8} className="px-[10px] py-4 text-center text-[12px] text-faint">
                 Nothing unallocated. Every party's bills add up to their Marg balance.
               </td></tr>
             ) : null}
@@ -194,6 +266,10 @@ function BillsDrawer({ row, onClose }) {
               </p>
             </div>
             <button type="button" onClick={onClose} className="btn btn-secondary px-3 py-1 text-[12px]">Close</button>
+          </div>
+
+          <div className="mt-2">
+            <DrawerActions row={row} />
           </div>
 
           <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-px bg-hair">
@@ -335,5 +411,22 @@ function Msg({ children, tone }) {
         {children}
       </div>
     </div>
+  );
+}
+
+/** Ring, remark or close from the drawer — the call this screen exists for. */
+function DrawerActions({ row }) {
+  const qc = useQueryClient();
+  const threadQ = useQuery({
+    queryKey: ['threads', 'party', row.party_id],
+    queryFn: async () => (await fetchThreads([row.party_id])).get(row.party_id) ?? null,
+  });
+  const party = {
+    party_id: row.party_id, display_name: row.display_name, phone: row.phone,
+    contact_person: row.contact_person, current_outstanding: row.marg_balance,
+  };
+  return (
+    <FollowupButtons party={party} thread={threadQ.data ?? null} showContact={false}
+                     onDone={() => qc.invalidateQueries({ queryKey: ['threads'] })} />
   );
 }

@@ -1,62 +1,23 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
-import { partiesAgeingQuery } from '../../lib/queries.js';
 import { formatInr, formatCount, formatDate } from '../../lib/format.js';
+import { Link } from 'react-router-dom';
 import { invalidate, AFTER, PARTY_DERIVED } from '../../lib/cache.js';
 import Overlay from '../../components/Overlay.jsx';
 import { Stars } from '../../components/StarRating.jsx';
 
 /**
- * Housekeeping — the jobs that keep the party list honest.
+ * The jobs that keep the party list honest, shown inside the Parties screen.
  *
- * Three of them, and they are on one screen because they are the same job
- * seen from three angles: an operator renames a party in Marg, the next
- * import treats it as new, and somebody has to notice and put it right.
- *
- *   New parties      — what appeared, so nothing goes unnoticed
- *   Possible duplicates — pairs that look like the same party twice
- *   The team         — who can be assigned work
+ * An operator renames a party in Marg, the next import treats it as new, and
+ * somebody has to notice and put it right. New parties and possible
+ * duplicates are the two sides of that, so they live beside the list they
+ * correct rather than on a screen of their own.
  */
-export default function HousekeepingScreen() {
-  const [tab, setTab] = useState('new');
-
-  const TABS = [
-    ['new', 'New parties'],
-    ['dupes', 'Possible duplicates'],
-    ['team', 'The team'],
-  ];
-
-  return (
-    <div className="animate-screen-in px-[18px] pb-[34px] pt-4">
-      <div className="mb-3 flex flex-wrap gap-2">
-        {TABS.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={[
-              'rounded-[2px] border px-[11px] py-[5px] text-[12px] transition-colors',
-              tab === id
-                ? 'border-teal bg-teal font-semibold text-onaccent'
-                : 'border-hair bg-surface text-body hover:border-teal',
-            ].join(' ')}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'new' ? <NewParties /> : null}
-      {tab === 'dupes' ? <Duplicates /> : null}
-      {tab === 'team' ? <Team /> : null}
-    </div>
-  );
-}
-
 /* ------------------------------------------------------------------ */
 
-function NewParties() {
+export function NewParties() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['new-parties'],
     queryFn: async () => {
@@ -94,7 +55,7 @@ function NewParties() {
               <tr key={r.party_id} className="border-b border-rule last:border-b-0">
                 <td className="py-[6px] pr-2">
                   <span className="flex items-center gap-[6px]">
-                    {r.display_name}
+                    <Link to={`/parties/${r.party_id}`} className="text-ink no-underline hover:underline">{r.display_name}</Link>
                     <Stars value={r.star_rating} size={10} />
                   </span>
                 </td>
@@ -134,7 +95,7 @@ function NewParties() {
  * an alias, so a later export under the old spelling is recognised rather
  * than starting the problem again.
  */
-function Duplicates() {
+export function Duplicates() {
   const qc = useQueryClient();
   const [confirm, setConfirm] = useState(null);
   const [result, setResult] = useState(null);
@@ -171,7 +132,7 @@ function Duplicates() {
     <>
       <Panel
         title="Pairs that may be the same party twice"
-        sub="Matched on the first twelve characters of the name — crude on purpose. This is a shortlist for you to judge, never an automatic merge, and two genuinely different parties can easily share an opening. Read both rows before merging anything."
+        sub="Matched on how alike the names are — CHETNA and CHETANA, KRH PHARMA and KRH PHARMA NSK. A shortlist for you to judge, never an automatic merge: two genuinely different parties can have similar names. Read both rows before merging anything."
       >
         {result ? (
           <div className="mb-3 border-l-[3px] border-l-age-0 bg-teal/[0.06] p-3 text-[12px]">
@@ -261,153 +222,6 @@ function Side({ name, out, bills, seen, align }) {
 
 /* ------------------------------------------------------------------ */
 
-/**
- * The team.
- *
- * A recovery person needs to be namable and assignable whether or not they
- * ever sign in — most of this desk does not. Somebody added here can be given
- * parties and will appear in the activity report; giving them a login is a
- * separate step in Supabase, and the note below says so rather than leaving
- * the distinction to be discovered.
- */
-function Team() {
-  const qc = useQueryClient();
-  const [form, setForm] = useState({ full_name: '', role: 'sales', email: '' });
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['app-users'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('app_users').select('*').order('full_name');
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const add = useMutation({
-    mutationFn: async (row) => {
-      const { error } = await supabase.from('app_users').insert(row);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      invalidate(qc, ['app-users']);
-      setForm({ full_name: '', role: 'sales', email: '' });
-    },
-  });
-
-  const setActive = useMutation({
-    mutationFn: async ({ id, active }) => {
-      const { error } = await supabase.from('app_users').update({ active }).eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => invalidate(qc, ['app-users']),
-  });
-
-  if (error) return <Panel><Err error={error} /></Panel>;
-
-  return (
-    <Panel
-      title="Who can be assigned work"
-      sub="Add the recovery people here. Somebody added becomes assignable to parties and appears in the daily activity report straight away — they do not need a login for that. A login is a separate step, and only needed if they will use the software themselves."
-    >
-      <form
-        className="mb-4 flex flex-wrap items-end gap-2 border border-hair bg-surface p-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!form.full_name.trim()) return;
-          add.mutate({
-            full_name: form.full_name.trim(),
-            role: form.role,
-            email: form.email.trim() || null,
-          });
-        }}
-      >
-        <label className="block">
-          <span className="kicker mb-1 block">Name</span>
-          <input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                 placeholder="Dinesh Patil"
-                 className="w-[180px] rounded-[2px] border border-hair px-[8px] py-[4px] text-[12px]" />
-        </label>
-        <label className="block">
-          <span className="kicker mb-1 block">Role</span>
-          <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}
-                  className="rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-[12px]">
-            <option value="sales">Recovery — logs calls, promises, follow-ups</option>
-            <option value="accounts">Accounts — imports, credit terms, claims</option>
-            <option value="owner">Owner — everything, including settings</option>
-          </select>
-        </label>
-        <label className="block">
-          <span className="kicker mb-1 block">Email (optional)</span>
-          <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-                 placeholder="dinesh@neomed.in"
-                 className="w-[170px] rounded-[2px] border border-hair px-[8px] py-[4px] text-[12px]" />
-        </label>
-        <button type="submit" className="btn btn-primary px-3 py-[4px] text-[12px]" disabled={add.isPending}>
-          {add.isPending ? 'Adding…' : 'Add person'}
-        </button>
-        {add.error ? <p className="w-full text-[11.5px] text-age-4">{add.error.message}</p> : null}
-      </form>
-
-      {isLoading ? <p className="text-[12px] text-mute">Loading…</p> : (
-        <table className="w-full border-collapse text-[12px]">
-          <thead>
-            <tr className="border-b border-hair text-[9.5px] uppercase tracking-[0.08em] text-faint">
-              <th className="py-[6px] text-left">Name</th>
-              <th className="py-[6px] text-left">Role</th>
-              <th className="py-[6px] text-left">Email</th>
-              <th className="py-[6px] text-right">Parties owned</th>
-              <th className="py-[6px] text-right">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data ?? []).map((u) => (
-              <TeamRow key={u.id} user={u} onToggle={(active) => setActive.mutate({ id: u.id, active })} />
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <p className="mt-3 text-[11.5px] text-faint text-pretty">
-        To give somebody a login as well: Supabase → Authentication → Users → Add user, tick
-        Auto Confirm, then tell me the UID and I will link it to their name here. Until then they
-        can be assigned parties and reported on, but cannot sign in.
-      </p>
-    </Panel>
-  );
-}
-
-function TeamRow({ user, onToggle }) {
-  const { data: owned } = useQuery({
-    queryKey: ['owned-count', user.id],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('parties')
-        .select('id', { count: 'exact', head: true })
-        .eq('responsible_person', user.id);
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
-
-  return (
-    <tr className="border-b border-rule last:border-b-0">
-      <td className="py-[6px]">{user.full_name}</td>
-      <td className="py-[6px] text-mute">{user.role}</td>
-      <td className="py-[6px] text-mute">{user.email ?? '—'}</td>
-      <td className="tnum py-[6px] text-right">{formatCount(owned ?? 0)}</td>
-      <td className="py-[6px] text-right">
-        <button
-          type="button"
-          onClick={() => onToggle(!user.active)}
-          className={`text-[11.5px] ${user.active === false ? 'text-faint' : 'text-teal-deep'} hover:underline`}
-        >
-          {user.active === false ? 'Inactive — reactivate' : 'Active'}
-        </button>
-      </td>
-    </tr>
-  );
-}
-
 /* ------------------------------------------------------------------ */
 
 function Panel({ title, sub, children }) {
@@ -425,7 +239,7 @@ function Err({ error }) {
     <div className="border-l-[3px] border-l-age-4 p-2 text-[12.5px]">
       {error.message}
       <p className="mt-1 text-[11.5px] text-mute">
-        If this names a missing table or function, migration 0011 has not been applied yet.
+        If this names a missing table or function, the latest SQL has not been applied yet.
       </p>
     </div>
   );

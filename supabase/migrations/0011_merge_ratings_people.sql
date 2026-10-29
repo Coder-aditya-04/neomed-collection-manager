@@ -244,7 +244,8 @@ grant execute on function fn_merge_parties(uuid, uuid) to authenticated;
 -- Pairs whose names share a leading run of characters. Crude on purpose:
 -- it is a shortlist for a person to judge, never an automatic merge.
 -- -------------------------------------------------------------------
-create or replace function fn_possible_duplicates(p_limit integer default 50)
+drop function if exists fn_possible_duplicates(integer);  -- return shape changes in 0012
+create function fn_possible_duplicates(p_limit integer default 50)
 returns table (
   a_party_id uuid, a_name text, a_outstanding numeric, a_bills integer, a_first_seen date,
   b_party_id uuid, b_name text, b_outstanding numeric, b_bills integer, b_first_seen date,
@@ -296,7 +297,8 @@ grant execute on function fn_possible_duplicates(integer) to authenticated;
 -- A thin view on top costs one join and keeps the ageing definition in
 -- exactly one place.
 -- -------------------------------------------------------------------
-create or replace view v_party_board as
+drop view if exists v_party_board;  -- widened in 0012; see note in 0007
+create view v_party_board as
 select
   a.*,
   p.star_rating,

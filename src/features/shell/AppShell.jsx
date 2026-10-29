@@ -32,7 +32,6 @@ const NAV = [
     items: [
       { to: '/recovery', label: 'Recovery desk', icon: 'desk' },
       { to: '/followups', label: 'Follow-ups', icon: 'followups' },
-      { to: '/promises', label: 'Promises', icon: 'promises' },
       { to: '/unallocated', label: 'To allocate', icon: 'allocate' },
       { to: '/claims', label: 'Claims', icon: 'claims' },
     ],
@@ -43,7 +42,6 @@ const NAV = [
       { to: '/statements', label: 'Statements', icon: 'statements' },
       { to: '/assistant', label: 'Assistant', icon: 'assistant' },
       { to: '/import', label: 'Import', icon: 'import' },
-      { to: '/housekeeping', label: 'Housekeeping', icon: 'housekeeping' },
       { to: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
@@ -92,11 +90,10 @@ const TITLES = {
   '/statements': ['Statements', 'Month-end party statements, composed and ready to send on WhatsApp'],
   '/import': ['Import', 'Marg outstanding bill-wise export · nothing is written before you confirm'],
   '/followups': ['Follow-ups', 'What was missed, what is planned, what the team did'],
-  '/promises': ['Promises', 'A promise closes only when a payment supports it'],
   '/claims': ['Claims', 'Money held by our own pending action'],
   '/assistant': ['Assistant', 'Ask about any party, bucket or bill in the current snapshot'],
-  '/housekeeping': ['Housekeeping', 'New parties, duplicates to merge, and who can be assigned work'],
-  '/settings': ['Settings', 'Users, category defaults, thresholds and import history'],
+  '/work': ['Work this band', 'The parties and invoices behind one ageing band, ready to be rung'],
+  '/settings': ['Settings', 'Users and logins, category defaults, thresholds and import history'],
 };
 
 export default function AppShell({ session }) {
@@ -111,7 +108,7 @@ export default function AppShell({ session }) {
     applyTheme(next);
   }
 
-  const [title, subtitle] = TITLES[location.pathname] ?? ['Neomed', ''];
+  const [title, subtitle] = (TITLES[location.pathname] ?? (location.pathname.startsWith('/parties/') ? ['Party', 'Everything about one party, in one place'] : undefined)) ?? ['Neomed', ''];
 
   const { data: snapshot } = useQuery({
     queryKey: ['latest-snapshot'],

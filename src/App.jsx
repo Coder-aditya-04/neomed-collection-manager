@@ -11,10 +11,11 @@ import AssistantScreen from './features/assistant/AssistantScreen.jsx';
 import SettingsScreen from './features/settings/SettingsScreen.jsx';
 import UnallocatedScreen from './features/unallocated/UnallocatedScreen.jsx';
 import AnalyticsScreen from './features/analytics/AnalyticsScreen.jsx';
-import HousekeepingScreen from './features/housekeeping/HousekeepingScreen.jsx';
 import StatementsScreen from './features/statements/StatementsScreen.jsx';
 import RecoveryScreen from './features/recovery/RecoveryScreen.jsx';
-import { ClaimsScreen, FollowupsScreen, PromisesScreen } from './features/registers/Registers.jsx';
+import { ClaimsScreen, FollowupsScreen } from './features/registers/Registers.jsx';
+import PartyPage from './features/parties/PartyPage.jsx';
+import WorkScreen from './features/work/WorkScreen.jsx';
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = still checking
@@ -36,14 +37,14 @@ export default function App() {
       <Route element={<AppShell session={session} />}>
         <Route index element={<DashboardScreen />} />
         <Route path="parties" element={<PartiesScreen />} />
+        <Route path="parties/:id" element={<PartyPage />} />
+        <Route path="work" element={<WorkScreen />} />
         <Route path="credit-master" element={<CreditMasterScreen />} />
         <Route path="import" element={<ImportScreen />} />
         <Route path="followups" element={<FollowupsScreen />} />
-        <Route path="promises" element={<PromisesScreen />} />
         <Route path="claims" element={<ClaimsScreen />} />
         <Route path="unallocated" element={<UnallocatedScreen />} />
         <Route path="analytics" element={<AnalyticsScreen />} />
-        <Route path="housekeeping" element={<HousekeepingScreen />} />
         <Route path="statements" element={<StatementsScreen />} />
         <Route path="recovery" element={<RecoveryScreen />} />
         <Route path="assistant" element={<AssistantScreen />} />
