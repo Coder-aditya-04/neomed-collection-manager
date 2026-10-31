@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase.js';
-import { latestSnapshotQuery, partyActivityQuery } from '../../lib/queries.js';
+import { latestSnapshotQuery, partiesAgeingQuery, partyActivityQuery } from '../../lib/queries.js';
+import Overlay from '../../components/Overlay.jsx';
 import { teamQuery } from '../../lib/useMe.js';
 import { formatInr, formatCount, formatAge, formatDate } from '../../lib/format.js';
 import { AFTER, PARTY_DERIVED, invalidate, patchParties } from '../../lib/cache.js';
@@ -91,6 +92,8 @@ export default function PartyPage() {
     queryFn: async () => (await fetchThreads([id])).get(id) ?? null,
   });
 
+  const [merging, setMerging] = useState(false);
+
   function refresh() {
     invalidate(qc, ['party-board-one', 'party-activity', 'threads', 'audit', 'parties-ageing', ...PARTY_DERIVED]);
   }
@@ -132,6 +135,11 @@ export default function PartyPage() {
               {party.is_credit_balance ? <Badge tone="claim">Credit balance</Badge> : null}
               {party.statement_mode === 'physical' ? <Badge tone="warn">Physical statement</Badge> : null}
               {party.statement_mode === 'do_not_send' ? <Badge tone="bad">Do not send statements</Badge> : null}
+              {snapshot && Number(party.bill_count) === 0 ? (
+                <Badge tone="faint" title="Marg lists only parties with something outstanding, so a party that is not in the file has paid off. Its history is kept.">
+                  Not in the latest Marg file
+                </Badge>
+              ) : null}
               {party.responsible_name ? <Badge>Owner: {party.responsible_name}</Badge> : <Badge tone="faint">Nobody assigned</Badge>}
               {party.aliases?.length ? (
                 <span className="text-[11px] text-faint" title={party.aliases.join(', ')}>
@@ -146,8 +154,12 @@ export default function PartyPage() {
                     onClick={() => navigate('/assistant', { state: { question: `What is the payment history of ${party.display_name}?` } })}>
               Ask the assistant
             </button>
+            <button type="button" className="btn btn-secondary" onClick={() => setMerging(true)}>
+              Merge…
+            </button>
           </div>
         </div>
+        {merging ? <MergeDialog party={party} onClose={() => setMerging(false)} /> : null}
 
         <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-px bg-hair">
           <Fig label="Outstanding" value={formatInr(party.current_outstanding)} />
@@ -446,6 +458,131 @@ function Timeline({ activity, audit, names, party }) {
 
 /* ------------------------------------------------------------------ */
 
+/**
+ * Merge this party with any other.
+ *
+ * The duplicates shortlist only offers pairs whose names look alike. The
+ * desk also meets the other case: two names that are plainly different in
+ * Marg and plainly the same account in life — a hospital and its institute,
+ * a shop and its proprietor. Those are merged from here. Either name can be
+ * the one that survives; everything the other carries moves across and its
+ * name is kept as an alias.
+ */
+function MergeDialog({ party, onClose }) {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { data: parties } = useQuery(partiesAgeingQuery());
+  const [q, setQ] = useState('');
+  const [other, setOther] = useState(null);
+
+  const matches = useMemo(() => {
+    const n = q.toUpperCase().trim();
+    if (!parties || n.length < 2) return [];
+    return parties
+      .filter((p) => p.party_id !== party.party_id && p.display_name.toUpperCase().includes(n))
+      .slice(0, 8);
+  }, [parties, q, party.party_id]);
+
+  const merge = useMutation({
+    mutationFn: async ({ source, target }) => {
+      const { data, error } = await supabase.rpc('fn_merge_parties', { p_source: source, p_target: target });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, { target }) => {
+      invalidate(qc, ['parties-ageing', 'party-board-one', 'possible-duplicates', 'new-parties',
+                      'party-activity', 'audit', 'threads', 'party-bills-full', 'work-bucket', ...PARTY_DERIVED]);
+      onClose();
+      navigate(`/parties/${target}`, { replace: true });
+    },
+  });
+
+  const INPUT = 'rounded-[2px] border border-hair bg-surface px-[8px] py-[4px] text-[12px]';
+
+  return (
+    <Overlay onClose={onClose} label="Merge parties">
+      <div className="overlay-center">
+        <div className="panel w-[560px] max-w-[94vw] p-[18px]">
+          <h2 className="text-[14.5px] font-semibold tracking-[-0.01em]">Merge {party.display_name} with another party</h2>
+          <p className="mt-1 text-[12px] text-mute text-pretty">
+            For two names Marg treats as different that are one account in life. Everything the
+            removed party carries — bills, payment history, calls, promises, claims, rating — moves
+            onto the one that stays, and its name is kept as an alias so the next import still lands
+            here.
+          </p>
+
+          {!other ? (
+            <div className="relative mt-3">
+              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)}
+                     placeholder={parties ? `Search ${formatCount(parties.length)} parties…` : 'Loading parties…'}
+                     className={`${INPUT} w-full`} />
+              {matches.length > 0 ? (
+                <div className="absolute z-20 mt-1 max-h-[240px] w-full overflow-auto border border-hair bg-surface shadow-lg">
+                  {matches.map((p) => (
+                    <button key={p.party_id} type="button" onClick={() => setOther(p)}
+                            className="block w-full px-[8px] py-[5px] text-left text-[12px] hover:bg-surface-3">
+                      <span className="block truncate">{p.display_name}</span>
+                      <span className="tnum block text-[10px] text-faint">
+                        {formatInr(p.current_outstanding)} · {formatCount(p.bill_count)} bills
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {q.trim().length >= 2 && parties && matches.length === 0 ? (
+                <p className="mt-2 text-[11.5px] text-faint">No other party matches "{q}".</p>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              <div className="mt-3 grid gap-px bg-hair sm:grid-cols-2">
+                <MergeSide label="This party" p={party} />
+                <MergeSide label="The other party" p={other} onChange={() => setOther(null)} />
+              </div>
+              <p className="mt-3 text-[12px] text-pretty">Which name should survive?</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <button type="button" className="btn btn-primary text-left" disabled={merge.isPending}
+                        onClick={() => merge.mutate({ source: party.party_id, target: other.party_id })}>
+                  Keep <strong>{other.display_name}</strong>; fold this one into it
+                </button>
+                <button type="button" className="btn btn-primary text-left" disabled={merge.isPending}
+                        onClick={() => merge.mutate({ source: other.party_id, target: party.party_id })}>
+                  Keep <strong>{party.display_name}</strong>; fold the other into it
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] text-mute text-pretty">
+                Nothing is discarded except a bill held by both in the same import, which is the same
+                bill twice and is kept once. <strong>This cannot be undone.</strong>
+              </p>
+            </>
+          )}
+
+          {merge.error ? <p className="mt-2 text-[11.5px] text-age-4">{merge.error.message}</p> : null}
+          <div className="mt-3 flex justify-end">
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={merge.isPending}>
+              {merge.isPending ? 'Merging…' : 'Cancel'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Overlay>
+  );
+}
+
+function MergeSide({ label, p, onChange }) {
+  return (
+    <div className="bg-surface p-[10px]">
+      <div className="kicker">{label}</div>
+      <div className="mt-[2px] truncate text-[12.5px] font-medium">{p.display_name}</div>
+      <div className="tnum text-[11px] text-mute">
+        {formatInr(p.current_outstanding)} · {formatCount(p.bill_count)} bills in the latest import
+        {p.first_seen_on ? ` · first seen ${formatDate(p.first_seen_on)}` : ''}
+      </div>
+      {onChange ? <button type="button" onClick={onChange} className="mt-1 text-[11px] text-mute underline">change</button> : null}
+    </div>
+  );
+}
+
 function Panel({ title, right, children }) {
   return (
     <section className="panel p-4">
@@ -467,14 +604,14 @@ function Fig({ label, value, tone }) {
   );
 }
 
-function Badge({ children, tone }) {
+function Badge({ children, tone, title }) {
   const cls = {
     warn: 'border-[#C9A93E] bg-[#C9A93E]/10 text-[#7A6410]',
     bad: 'border-age-4/50 bg-age-4/10 text-age-4',
     claim: 'border-claim/40 bg-claim/10 text-claim',
     faint: 'border-hair bg-surface text-faint',
   }[tone] ?? 'border-hair bg-surface text-mute';
-  return <span className={`rounded-[2px] border px-[7px] py-[2px] text-[10.5px] ${cls}`}>{children}</span>;
+  return <span title={title} className={`rounded-[2px] border px-[7px] py-[2px] text-[10.5px] ${cls}`}>{children}</span>;
 }
 
 function Th({ children, align = 'left' }) {

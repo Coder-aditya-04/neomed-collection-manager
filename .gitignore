@@ -13,3 +13,6 @@ outstanding*
 
 # Design source export — kept local, carries prototype party data
 Neomed dashboard UI specifications/
+
+# Client-facing PDFs and screenshots — real party names, never commit
+deliverables/

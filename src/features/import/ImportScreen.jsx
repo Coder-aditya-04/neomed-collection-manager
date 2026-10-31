@@ -345,6 +345,7 @@ function Running({ progress, preview }) {
     progress.total > 0 ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0;
   const phaseLabel = {
     archiving: 'Archiving the original file',
+    absent: 'Clearing parties that are not in this file',
     deriving: 'Working out what moved since the last file',
     snapshot: 'Creating the snapshot',
     parties: 'Writing parties',
@@ -412,6 +413,23 @@ function Result({ result, preview, onAgain }) {
             .
           </p>
         )
+      ) : null}
+
+      {result?.absent ? (
+        result.absent.error ? (
+          <p className="mt-3 max-w-[80ch] text-[12px] text-age-2 text-pretty">
+            Parties that are not in this file could not be set to nil: {result.absent.error}. If this
+            names a missing function, the latest SQL has not been applied; run it and they clear on
+            the next import.
+          </p>
+        ) : result.absent.count > 0 ? (
+          <p className="mt-3 max-w-[80ch] text-[12px] text-mute text-pretty">
+            <span className="tnum font-medium">{formatCount(result.absent.count)}</span>{' '}
+            {result.absent.count === 1 ? 'party that was' : 'parties that were'} not in this file now
+            read nil. Marg lists only parties with something outstanding, so absent means paid; their
+            history is kept.
+          </p>
+        ) : null
       ) : null}
 
       {!result?.storagePath ? (

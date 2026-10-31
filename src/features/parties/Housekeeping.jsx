@@ -125,6 +125,20 @@ export function Duplicates() {
     },
   });
 
+  /*
+   * "Not the same." The shortlist is a guess; once a person has read a
+   * pair and judged it, offering it again every day teaches them to stop
+   * reading the list. The dismissal is kept in the database with their
+   * name, so it holds across logins and across the team.
+   */
+  const dismiss = useMutation({
+    mutationFn: async ({ a, b }) => {
+      const { error } = await supabase.rpc('fn_dismiss_duplicate', { p_a: a, p_b: b });
+      if (error) throw error;
+    },
+    onSuccess: () => invalidate(qc, ['possible-duplicates']),
+  });
+
   if (error) return <Panel><Err error={error} /></Panel>;
   if (isLoading) return <Panel><p className="text-[12px] text-mute">Looking for pairs…</p></Panel>;
 
@@ -132,7 +146,7 @@ export function Duplicates() {
     <>
       <Panel
         title="Pairs that may be the same party twice"
-        sub="Matched on how alike the names are — CHETNA and CHETANA, KRH PHARMA and KRH PHARMA NSK. A shortlist for you to judge, never an automatic merge: two genuinely different parties can have similar names. Read both rows before merging anything."
+        sub="Matched on the distinctive part of the name, with words like MEDICAL, GENERAL STORES, PHARMA and HOSPITAL set aside — CHETNA and CHETANA, KRH PHARMA and KRH PHARMA NSK. A shortlist for you to judge, never an automatic merge. If a pair is two different parties, press Not the same and it will not be offered again. To merge two parties this list has not paired, open either party and use Merge."
       >
         {result ? (
           <div className="mb-3 border-l-[3px] border-l-age-0 bg-teal/[0.06] p-3 text-[12px]">
@@ -147,9 +161,17 @@ export function Duplicates() {
           </div>
         ) : null}
 
+        {dismiss.error ? (
+          <p className="mb-2 text-[11.5px] text-age-4">
+            Could not record that: {dismiss.error.message}
+            {/fn_dismiss_duplicate/.test(dismiss.error.message) ? ' — the latest SQL has not been applied yet.' : ''}
+          </p>
+        ) : null}
+
         {data.length === 0 ? (
           <p className="py-6 text-center text-[12px] text-mute">
-            No pairs share an opening. Nothing here looks like the same party twice.
+            Nothing here looks like the same party twice. Two parties this list has not paired can
+            still be merged from either party's page.
           </p>
         ) : (
           <div className="grid gap-2">
@@ -158,6 +180,9 @@ export function Duplicates() {
                    style={{ gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)' }}>
                 <Side name={d.a_name} out={d.a_outstanding} bills={d.a_bills} seen={d.a_first_seen} />
                 <div className="grid gap-[4px]">
+                  {d.matched_on ? (
+                    <span className="text-center text-[10px] uppercase tracking-[0.08em] text-faint">{d.matched_on}</span>
+                  ) : null}
                   <button type="button" className="btn btn-secondary px-[9px] py-[3px] text-[11px]"
                           onClick={() => setConfirm({ source: d.a_party_id, target: d.b_party_id, from: d.a_name, into: d.b_name })}>
                     Merge left → right
@@ -165,6 +190,11 @@ export function Duplicates() {
                   <button type="button" className="btn btn-secondary px-[9px] py-[3px] text-[11px]"
                           onClick={() => setConfirm({ source: d.b_party_id, target: d.a_party_id, from: d.b_name, into: d.a_name })}>
                     Merge right → left
+                  </button>
+                  <button type="button" className="px-[9px] py-[2px] text-[11px] text-mute hover:text-ink hover:underline"
+                          disabled={dismiss.isPending}
+                          onClick={() => dismiss.mutate({ a: d.a_party_id, b: d.b_party_id })}>
+                    Not the same
                   </button>
                 </div>
                 <Side name={d.b_name} out={d.b_outstanding} bills={d.b_bills} seen={d.b_first_seen} align="right" />

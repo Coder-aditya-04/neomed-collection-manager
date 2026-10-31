@@ -77,6 +77,19 @@ are listed with their dates, above the bills they could be set against, so
 the call can be specific: "the 20,000 you sent on 14 September is still
 unapplied — shall we put it against bill 4471?"
 
+**Parties that leave the file.** Marg's outstanding report lists only parties
+with something outstanding, so a party that pays off simply stops appearing.
+Every import now sets such parties to nil; the row, its history, rating and
+term are kept, and the party page says "Not in the latest Marg file".
+
+**Merging duplicates.** The shortlist compares the distinctive part of each
+name with the trade words (MEDICAL, GENERAL STORES, PHARMA, HOSPITAL, DR and
+so on) set aside, so ALPHA and BETA are no longer offered as a pair
+because they both run a "medical and general stores". A pair that is two
+different parties can be dismissed with *Not the same* and stays dismissed.
+Two parties the shortlist never paired can be merged from either party's
+page with *Merge…*, choosing which name survives.
+
 **Statements.** Month-end party statements in Marg's own format, every bill
 listed, ready to send on WhatsApp.
 

@@ -158,11 +158,38 @@ export async function commitImport(preview, { onProgress = () => {} } = {}) {
   onProgress({ phase: 'warnings', done: 0, total: parsed.warnings.length });
   await insertWarnings(parsed.warnings, snapshot.id, partyIds, storagePath);
 
+  onProgress({ phase: 'absent', done: 0, total: 1 });
+  const absent = await clearAbsentParties(snapshot.id);
+
   onProgress({ phase: 'deriving', done: 0, total: 1 });
   const derived = await deriveHistory();
 
   onProgress({ phase: 'done', done: 1, total: 1 });
-  return { snapshot, storagePath, derived };
+  return { snapshot, storagePath, derived, absent };
+}
+
+/**
+ * A party that is not in this file has nothing outstanding.
+ *
+ * Marg's outstanding report lists only parties that owe or are owed, so a
+ * party that paid off simply stops appearing. The upsert above touches only
+ * the parties in the file, which left the ones that vanished carrying their
+ * last balance indefinitely — a clinic the desk had settled kept showing
+ * ₹4.56 L. The database sets those to nil; the rows and their history stay.
+ *
+ * Non-fatal for the same reason as deriveHistory: the snapshot is already
+ * written, and the function is idempotent and can be run again.
+ */
+async function clearAbsentParties(snapshotId) {
+  const out = { count: 0, error: null };
+  try {
+    const { data, error } = await supabase.rpc('fn_zero_absent_parties', { p_snapshot: snapshotId });
+    if (error) throw error;
+    out.count = data ?? 0;
+  } catch (e) {
+    out.error = e.message ?? String(e);
+  }
+  return out;
 }
 
 /**

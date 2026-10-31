@@ -46,6 +46,9 @@ psql_q -d "$DB" -f "$HERE/diff_profiles_test.sql"
 echo "==> follow-up threads, audit, merge"
 psql_q -d "$DB" -f "$HERE/followups_test.sql"
 
+echo "==> absent parties, duplicates, dismissals"
+psql_q -d "$DB" -f "$HERE/absent_duplicates_test.sql"
+
 echo "==> row level security"
 psql_q -d "$DB" -f "$HERE/rls_test.sql"
 
